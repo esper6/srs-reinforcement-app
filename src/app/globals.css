@@ -1,26 +1,253 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a12;
+  --foreground: #d0d0e0;
+  --neon-cyan: #00f0ff;
+  --neon-magenta: #ff00aa;
+  --neon-green: #00ff88;
+  --neon-purple: #b000ff;
+  --surface: #111122;
+  --surface-light: #1a1a2e;
+  --border-retro: #2a2a44;
+  --extra-credit-bg: #13110e;
+  --extra-credit-surface: #1a1610;
+  --extra-credit-surface-light: #24201a;
+  --extra-credit-border: #3a3228;
+  --extra-credit-accent: #d4a054;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-neon-cyan: var(--neon-cyan);
+  --color-neon-magenta: var(--neon-magenta);
+  --color-neon-green: var(--neon-green);
+  --color-neon-purple: var(--neon-purple);
+  --color-surface: var(--surface);
+  --color-surface-light: var(--surface-light);
+  --color-border-retro: var(--border-retro);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-retro: var(--font-share-tech-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+}
+
+/* ── Scanline overlay ── */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.06) 0px,
+    rgba(0, 0, 0, 0.06) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  animation: scanline-drift 8s linear infinite;
+}
+
+@keyframes scanline-drift {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100px; }
+}
+
+/* ── Glow utilities ── */
+.glow-cyan {
+  text-shadow:
+    0 0 7px var(--neon-cyan),
+    0 0 20px rgba(0, 240, 255, 0.4),
+    0 0 40px rgba(0, 240, 255, 0.15);
+}
+
+.glow-magenta {
+  text-shadow:
+    0 0 7px var(--neon-magenta),
+    0 0 20px rgba(255, 0, 170, 0.4),
+    0 0 40px rgba(255, 0, 170, 0.15);
+}
+
+.glow-green {
+  text-shadow:
+    0 0 7px var(--neon-green),
+    0 0 20px rgba(0, 255, 136, 0.4),
+    0 0 40px rgba(0, 255, 136, 0.15);
+}
+
+.box-glow-cyan {
+  box-shadow:
+    0 0 6px rgba(0, 240, 255, 0.25),
+    0 0 20px rgba(0, 240, 255, 0.08),
+    inset 0 0 12px rgba(0, 240, 255, 0.04);
+}
+
+.box-glow-magenta {
+  box-shadow:
+    0 0 6px rgba(255, 0, 170, 0.25),
+    0 0 20px rgba(255, 0, 170, 0.08),
+    inset 0 0 12px rgba(255, 0, 170, 0.04);
+}
+
+.box-glow-green {
+  box-shadow:
+    0 0 6px rgba(0, 255, 136, 0.25),
+    0 0 20px rgba(0, 255, 136, 0.08),
+    inset 0 0 12px rgba(0, 255, 136, 0.04);
+}
+
+/* ── Retro border style ── */
+.retro-border {
+  border: 1px solid var(--border-retro);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 240, 255, 0.05),
+    0 0 0 1px rgba(0, 240, 255, 0.03);
+}
+
+.retro-border-double {
+  border: 2px double var(--border-retro);
+}
+
+/* ── Neon button ── */
+.btn-neon {
+  position: relative;
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.06);
+  transition: all 0.2s ease;
+}
+
+.btn-neon:hover {
+  background: rgba(0, 240, 255, 0.14);
+  box-shadow:
+    0 0 8px rgba(0, 240, 255, 0.3),
+    0 0 24px rgba(0, 240, 255, 0.1),
+    inset 0 0 8px rgba(0, 240, 255, 0.06);
+}
+
+.btn-neon-magenta {
+  border-color: var(--neon-magenta);
+  color: var(--neon-magenta);
+  background: rgba(255, 0, 170, 0.06);
+}
+
+.btn-neon-magenta:hover {
+  background: rgba(255, 0, 170, 0.14);
+  box-shadow:
+    0 0 8px rgba(255, 0, 170, 0.3),
+    0 0 24px rgba(255, 0, 170, 0.1),
+    inset 0 0 8px rgba(255, 0, 170, 0.06);
+}
+
+.btn-neon-green {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  background: rgba(0, 255, 136, 0.06);
+}
+
+.btn-neon-green:hover {
+  background: rgba(0, 255, 136, 0.14);
+  box-shadow:
+    0 0 8px rgba(0, 255, 136, 0.3),
+    0 0 24px rgba(0, 255, 136, 0.1),
+    inset 0 0 8px rgba(0, 255, 136, 0.06);
+}
+
+/* ── Glowing progress bars ── */
+.progress-glow-green {
+  background: var(--neon-green);
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.5), 0 0 16px rgba(0, 255, 136, 0.2);
+}
+
+.progress-glow-yellow {
+  background: #ffcc00;
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.5), 0 0 16px rgba(255, 204, 0, 0.2);
+}
+
+.progress-glow-red {
+  background: #ff4444;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.5), 0 0 16px rgba(255, 68, 68, 0.2);
+}
+
+.progress-glow-cyan {
+  background: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.5), 0 0 16px rgba(0, 240, 255, 0.2);
+}
+
+/* ── Flicker animation for neon text ── */
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+  }
+  20%, 24%, 55% {
+    opacity: 0.85;
+  }
+}
+
+.animate-flicker {
+  animation: flicker 4s linear infinite;
+}
+
+/* ── Pulse glow for buttons ── */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 6px rgba(0, 240, 255, 0.3),
+      0 0 20px rgba(0, 240, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgba(0, 240, 255, 0.5),
+      0 0 30px rgba(0, 240, 255, 0.2);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-retro);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-cyan);
+  box-shadow: 0 0 4px rgba(0, 240, 255, 0.3);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-retro) var(--surface);
+}
+
+/* ── Selection highlight ── */
+::selection {
+  background: rgba(0, 240, 255, 0.25);
+  color: #fff;
+}
+
+/* ── Loading spinner retro ── */
+.retro-spinner {
+  border-color: var(--border-retro);
+  border-top-color: var(--neon-cyan);
+  filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.4));
 }
