@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SRS Reinforcement
 
-## Getting Started
+An AI-powered spaced repetition app for STEM learning. Instead of flashcards, you learn through multi-turn Socratic interviews with Claude. The AI probes what you know, identifies gaps, and scores your understanding per-facet using a forgetting-curve decay model.
 
-First, run the development server:
+## How It Works
+
+**Assess** - Claude asks open-ended questions about a concept, probing 3-5 key facets through Socratic dialogue. It scores each facet independently based on what you demonstrated unprompted (not what you parroted back after being told).
+
+**Review** - When a concept's mastery decays past its threshold, it enters the review queue. Reviews are cold recall tests — no hints, no framing. Scores update per-facet, and untested facets keep their previous scores.
+
+**Extra Credit** - After assessment, the chat stays open in a relaxed mode. Ask follow-up questions, explore topics deeper, or read the source lesson. No scores are affected.
+
+### Mastery Model
+
+Each concept has 3-5 sub-masteries (facets) with independent scores and decay rates. The overall mastery is the average of facet scores. Mastery decays exponentially over time (`score * e^(-decayRate * days)`), and review thresholds are relative — strong concepts (90+) trigger review at ~60%, weak ones at ~25%.
+
+Reviews are interleaved across subjects (WaniKani-style) so you don't burn out on one topic.
+
+### Scoring
+
+The AI is calibrated to be strict:
+- Cold recall with specific details = full credit
+- Vague hand-waving ("maybe some kind of token") = 20-35%
+- Buzzword dropping without explanation = 30-40%
+- "I don't know" = 0-10% (honest and scored honestly)
+- Parroting back corrections = no credit
+
+## Tech Stack
+
+- **Next.js 16** (App Router) on Vercel
+- **Neon Postgres** via Prisma 7 with `@prisma/adapter-pg`
+- **NextAuth v4** with Google OAuth (database sessions)
+- **Claude API** (Sonnet) with streaming SSE
+- **Tailwind CSS v4** with a neo-retro neon theme
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create `.env.local`:
+```
+DATABASE_URL=postgresql://...
+NEXTAUTH_URL=http://localhost:3003
+NEXTAUTH_SECRET=your-secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+ANTHROPIC_API_KEY=sk-ant-...
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Run migrations and seed:
+```bash
+npx prisma migrate dev
+npm run seed
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Start the dev server:
+```bash
+npm run dev -- -p 3003
+```
 
-## Learn More
+## Adding Curricula
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Add to `curricula-export.json` and re-run `npm run seed`. The seed script upserts by slug so it's safe to re-run. Each concept needs a title, description, lesson markdown, and order. The AI generates all questions dynamically from the lesson markdown — no need to author prompts.
