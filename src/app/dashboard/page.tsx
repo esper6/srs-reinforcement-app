@@ -41,7 +41,7 @@ export default async function DashboardPage() {
     let averageMastery: number | null = null;
     if (masteries.length > 0) {
       const total = masteries.reduce(
-        (sum, m) =>
+        (sum: number, m: { score: number; decayRate: number; lastReviewedAt: Date }) =>
           sum + calculateCurrentMastery(m.score, m.decayRate, m.lastReviewedAt),
         0
       );
