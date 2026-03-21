@@ -38,7 +38,15 @@ export default function LearnPage() {
     <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
       <div className="px-4 pt-3">
         <button
-          onClick={() => router.back()}
+          onClick={() => {
+            const slug = conceptInfo?.section.curriculum.slug;
+            if (slug) {
+              router.push(`/subject/${slug}`);
+              router.refresh();
+            } else {
+              router.back();
+            }
+          }}
           className="text-[var(--foreground)] opacity-40 hover:text-[var(--neon-cyan)] text-sm font-[family-name:var(--font-share-tech-mono)] transition-colors"
         >
           &larr; Back
@@ -51,7 +59,15 @@ export default function LearnPage() {
         mode="ASSESS"
         lessonMarkdown={conceptInfo?.lessonMarkdown}
         onMasteryUpdate={handleMasteryUpdate}
-        onComplete={() => router.back()}
+        onComplete={() => {
+          const slug = conceptInfo?.section.curriculum.slug;
+          if (slug) {
+            router.push(`/subject/${slug}`);
+            router.refresh();
+          } else {
+            router.back();
+          }
+        }}
       />
     </div>
   );

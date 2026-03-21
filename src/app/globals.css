@@ -10,11 +10,17 @@
   --surface: #111122;
   --surface-light: #1a1a2e;
   --border-retro: #2a2a44;
-  --extra-credit-bg: #13110e;
-  --extra-credit-surface: #1a1610;
-  --extra-credit-surface-light: #24201a;
-  --extra-credit-border: #3a3228;
+  --extra-credit-bg: #14110a;
+  --extra-credit-surface: #1c1710;
+  --extra-credit-surface-light: #262016;
+  --extra-credit-border: #3d3427;
   --extra-credit-accent: #d4a054;
+  --extra-credit-accent-dim: #a07838;
+  --extra-credit-text: #d8cfc0;
+  --extra-credit-user-bg: rgba(212, 160, 84, 0.1);
+  --extra-credit-user-border: rgba(212, 160, 84, 0.2);
+  --extra-credit-assistant-bg: #1f1a12;
+  --extra-credit-assistant-border: #332b1e;
 }
 
 @theme inline {
@@ -243,6 +249,35 @@ body::after {
 ::selection {
   background: rgba(0, 240, 255, 0.25);
   color: #fff;
+}
+
+/* ── Kinetic expand/collapse ── */
+.panel-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 500ms cubic-bezier(0.76, 0, 0.95, 0.05);
+}
+
+.panel-collapse.collapsed {
+  grid-template-rows: 0fr;
+}
+
+.panel-collapse > div {
+  overflow: hidden;
+}
+
+.panel-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 500ms cubic-bezier(0.76, 0, 0.95, 0.05);
+}
+
+.panel-expand.expanded {
+  grid-template-rows: 1fr;
+}
+
+.panel-expand > div {
+  overflow: hidden;
 }
 
 /* ── Loading spinner retro ── */
