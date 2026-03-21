@@ -38,10 +38,12 @@ export async function GET(req: NextRequest) {
   }
 
   // Find concepts with no mastery record (never assessed)
-  const unstarted = curriculum.sections.flatMap((s) =>
+  type Section = (typeof curriculum.sections)[number];
+  type Concept = Section["concepts"][number];
+  const unstarted = curriculum.sections.flatMap((s: Section) =>
     s.concepts
-      .filter((c) => c.masteries.length === 0)
-      .map((c) => ({
+      .filter((c: Concept) => c.masteries.length === 0)
+      .map((c: Concept) => ({
         conceptId: c.id,
         conceptTitle: c.title,
         sectionName: s.name,
