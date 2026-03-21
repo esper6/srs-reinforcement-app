@@ -41,9 +41,11 @@ export default async function SubjectPage({
   if (!curriculum) notFound();
 
   // Count unstarted concepts and concepts due for review
-  const allConcepts = curriculum.sections.flatMap((s) => s.concepts);
-  const unstartedCount = allConcepts.filter((c) => c.masteries.length === 0).length;
-  const reviewCount = allConcepts.filter((c) => {
+  type Section = (typeof curriculum.sections)[number];
+  type Concept = Section["concepts"][number];
+  const allConcepts = curriculum.sections.flatMap((s: Section) => s.concepts);
+  const unstartedCount = allConcepts.filter((c: Concept) => c.masteries.length === 0).length;
+  const reviewCount = allConcepts.filter((c: Concept) => {
     const m = c.masteries[0];
     if (!m) return false;
     const current = calculateCurrentMastery(m.score, m.decayRate, m.lastReviewedAt);
@@ -72,8 +74,8 @@ export default async function SubjectPage({
 
       <DecayQueue
         items={allConcepts
-          .filter((c) => c.masteries.length > 0)
-          .map((c) => ({
+          .filter((c: Concept) => c.masteries.length > 0)
+          .map((c: Concept) => ({
             conceptId: c.id,
             title: c.title,
             score: c.masteries[0].score,

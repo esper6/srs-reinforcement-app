@@ -29,10 +29,13 @@ export default async function DashboardPage() {
     },
   });
 
-  const subjects = curricula.map((c) => {
-    const concepts = c.sections.flatMap((s) => s.concepts);
+  type Curriculum = (typeof curricula)[number];
+  type Section = Curriculum["sections"][number];
+  type Concept = Section["concepts"][number];
+  const subjects = curricula.map((c: Curriculum) => {
+    const concepts = c.sections.flatMap((s: Section) => s.concepts);
     const masteries = concepts
-      .map((concept) => concept.masteries[0])
+      .map((concept: Concept) => concept.masteries[0])
       .filter(Boolean);
 
     let averageMastery: number | null = null;

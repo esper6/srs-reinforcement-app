@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Build conversation history
-  const messages = chatSession.messages.map((m) => ({
+  const messages = chatSession.messages.map((m: { role: string; content: string }) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
@@ -88,9 +88,9 @@ export async function POST(req: NextRequest) {
       systemPrompt = buildAssessPrompt(concept.title, concept.lessonMarkdown, exchangeCount);
     } else if (mode === "LEARN") {
       const weakAreas = mastery?.subMasteries
-        ?.sort((a, b) => a.score - b.score)
+        ?.sort((a: { score: number }, b: { score: number }) => a.score - b.score)
         .slice(0, 3)
-        .map((s) => `${s.name} (${Math.round(s.score)}%)`)
+        .map((s: { name: string; score: number }) => `${s.name} (${Math.round(s.score)}%)`)
         .join(", ") ?? "";
       systemPrompt = buildLearnPrompt(
         concept.title,
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       const daysSince = mastery
         ? (Date.now() - mastery.lastReviewedAt.getTime()) / (1000 * 60 * 60 * 24)
         : 0;
-      const subMasteries = mastery?.subMasteries?.map((s) => ({
+      const subMasteries = mastery?.subMasteries?.map((s: { name: string; score: number }) => ({
         name: s.name,
         score: Math.round(s.score),
       }));

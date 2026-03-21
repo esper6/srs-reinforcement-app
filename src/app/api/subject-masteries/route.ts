@@ -28,11 +28,11 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({
-    masteries: masteries.map((m) => ({
+    masteries: masteries.map((m: typeof masteries[number]) => ({
       conceptId: m.concept.id,
       title: m.concept.title,
       score: Math.round(m.score),
-      subMasteries: m.subMasteries.map((s) => ({
+      subMasteries: m.subMasteries.map((s: { name: string; score: number; decayRate: number }) => ({
         name: s.name,
         score: Math.round(s.score),
         decayRate: s.decayRate,
