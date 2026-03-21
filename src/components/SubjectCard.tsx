@@ -3,7 +3,7 @@ import Link from "next/link";
 interface SubjectCardProps {
   name: string;
   slug: string;
-  description: string;
+  description: string | null;
   conceptCount: number;
   averageMastery: number | null;
 }

@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
   const queue: ReviewQueueItem[] = [];
 
-  for (const m of masteries) {
+  type MasteryWithConcept = (typeof masteries)[number];
+  for (const m of masteries as MasteryWithConcept[]) {
     const daysSince =
       (now - m.lastReviewedAt.getTime()) / (1000 * 60 * 60 * 24);
     const currentMastery = calculateCurrentMastery(

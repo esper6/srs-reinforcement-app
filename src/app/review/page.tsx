@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ChatInterface from "@/components/ChatInterface";
 import { ReviewQueueItem } from "@/lib/types";
 import Link from "next/link";
 
 export default function ReviewPage() {
+  return (
+    <Suspense fallback={<div className="max-w-3xl mx-auto px-4 py-8 text-[var(--text-secondary)]">Loading review queue...</div>}>
+      <ReviewPageInner />
+    </Suspense>
+  );
+}
+
+function ReviewPageInner() {
   const searchParams = useSearchParams();
   const subject = searchParams.get("subject");
   const [queue, setQueue] = useState<ReviewQueueItem[]>([]);

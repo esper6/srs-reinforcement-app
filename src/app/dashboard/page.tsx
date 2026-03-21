@@ -32,7 +32,13 @@ export default async function DashboardPage() {
   type Curriculum = (typeof curricula)[number];
   type Section = Curriculum["sections"][number];
   type Concept = Section["concepts"][number];
-  const subjects = curricula.map((c: Curriculum) => {
+  const subjects: Array<{
+    name: string;
+    slug: string;
+    description: string | null;
+    conceptCount: number;
+    averageMastery: number | null;
+  }> = curricula.map((c: Curriculum) => {
     const concepts = c.sections.flatMap((s: Section) => s.concepts);
     const masteries = concepts
       .map((concept: Concept) => concept.masteries[0])

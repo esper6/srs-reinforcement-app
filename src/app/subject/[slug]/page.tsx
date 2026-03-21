@@ -85,13 +85,13 @@ export default async function SubjectPage({
       />
 
       <div className="space-y-8">
-        {curriculum.sections.map((section) => (
+        {curriculum.sections.map((section: Section) => (
           <div key={section.id}>
             <h2 className="font-[family-name:var(--font-share-tech-mono)] text-lg font-semibold text-[var(--neon-magenta)] mb-3 border-b border-[var(--border-retro)] pb-2 glow-magenta">
               {section.name}
             </h2>
             <div className="space-y-2">
-              {section.concepts.map((concept) => {
+              {section.concepts.map((concept: Concept) => {
                 const mastery = concept.masteries[0];
                 const currentScore = mastery
                   ? calculateCurrentMastery(
