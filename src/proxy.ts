@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const protectedPaths = ["/dashboard", "/subject", "/learn", "/review"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (protectedPaths.some((p) => pathname.startsWith(p))) {
