@@ -9,7 +9,13 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (session) router.replace("/dashboard");
+    if (session) {
+      if (session.user?.approved === false) {
+        router.replace("/pending-approval");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
   }, [session, router]);
 
   if (status === "loading") {

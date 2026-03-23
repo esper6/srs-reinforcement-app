@@ -1,49 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-export async function streamChatResponse(
-  systemPrompt: string,
-  messages: { role: "user" | "assistant"; content: string }[]
-): Promise<ReadableStream<Uint8Array>> {
-  const stream = client.messages.stream({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1500,
-    system: systemPrompt,
-    messages,
-  });
-
-  const encoder = new TextEncoder();
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const event of stream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
-            );
-          }
-        }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-      } catch (error) {
-        console.error("Claude API error:", error);
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ text: `[Error: ${errorMsg}]` })}\n\n`
-          )
-        );
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-      }
-    },
-  });
-}
+// Tag parsers for mastery scores emitted by the LLM.
+// Streaming is handled by src/lib/llm.ts (multi-provider).
 
 export function parseMasteryTag(
   text: string

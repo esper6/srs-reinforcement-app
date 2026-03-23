@@ -21,7 +21,7 @@ export default function SubjectCard({
       ? "text-[var(--neon-green)]"
       : mastery >= 40
         ? "text-yellow-400"
-        : "text-[var(--foreground)] opacity-40";
+        : "text-[var(--foreground)] opacity-60";
 
   const barClass =
     mastery >= 70
@@ -35,12 +35,12 @@ export default function SubjectCard({
       href={`/subject/${slug}`}
       className="block bg-[var(--surface)] border border-[var(--border-retro)] rounded-lg p-5 hover:box-glow-cyan hover:border-[var(--neon-cyan)]/30 transition-all duration-300 group"
     >
-      <h3 className="font-[family-name:var(--font-share-tech-mono)] text-[var(--neon-cyan)] font-semibold text-lg mb-1 group-hover:glow-cyan transition-all">
+      <h2 className="font-[family-name:var(--font-share-tech-mono)] text-[var(--neon-cyan)] font-semibold text-lg mb-1 group-hover:glow-cyan transition-all">
         {name}
-      </h3>
-      <p className="text-[var(--foreground)] opacity-50 text-sm mb-4 line-clamp-2">{description}</p>
+      </h2>
+      <p className="text-[var(--foreground)] opacity-70 text-sm mb-4 line-clamp-2">{description}</p>
       <div className="flex items-center justify-between">
-        <span className="text-[var(--foreground)] opacity-30 text-xs font-[family-name:var(--font-share-tech-mono)]">
+        <span className="text-[var(--foreground)] opacity-60 text-xs font-[family-name:var(--font-share-tech-mono)]">
           {conceptCount} concepts
         </span>
         <span className={`text-sm font-medium font-[family-name:var(--font-share-tech-mono)] ${masteryColor}`}>

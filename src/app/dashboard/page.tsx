@@ -4,13 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { calculateCurrentMastery } from "@/lib/mastery";
 import SubjectCard from "@/components/SubjectCard";
-import ReviewQueueBanner from "@/components/ReviewQueueBanner";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/");
+  if (!session.user.approved) redirect("/pending-approval");
 
-  const userId = (session.user as { id: string }).id;
+  const userId = session.user.id;
 
   const curricula = await prisma.curriculum.findMany({
     orderBy: { order: "asc" },
@@ -68,7 +68,6 @@ export default async function DashboardPage() {
       <h1 className="font-[family-name:var(--font-share-tech-mono)] text-2xl font-bold text-[var(--neon-cyan)] mb-6 glow-cyan tracking-wide">
         Your Subjects
       </h1>
-      <ReviewQueueBanner />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {subjects.map((s) => (
           <SubjectCard key={s.slug} {...s} />

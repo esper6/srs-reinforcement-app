@@ -10,8 +10,11 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!session.user.approved) {
+    return NextResponse.json({ error: "Account not approved" }, { status: 403 });
+  }
 
-  const userId = (session.user as { id: string }).id;
+  const userId = session.user.id;
   const subjectSlug = req.nextUrl.searchParams.get("subject");
 
   const masteries = await prisma.conceptMastery.findMany({
@@ -30,6 +33,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      subMasteries: true,
     },
   });
 
@@ -46,7 +50,15 @@ export async function GET(req: NextRequest) {
       m.lastReviewedAt
     );
 
-    if (currentMastery < getReviewThreshold(m.score)) {
+    // Check if any sub-mastery is due — weak facets trigger review for the whole concept
+    const anySubDue = m.subMasteries.some(
+      (s: { score: number; decayRate: number; lastReviewedAt: Date }) => {
+        const subCurrent = calculateCurrentMastery(s.score, s.decayRate, s.lastReviewedAt);
+        return subCurrent < getReviewThreshold(s.score);
+      }
+    );
+
+    if (anySubDue || currentMastery < getReviewThreshold(m.score)) {
       queue.push({
         conceptId: m.conceptId,
         conceptTitle: m.concept.title,

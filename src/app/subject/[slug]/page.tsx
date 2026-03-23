@@ -15,9 +15,10 @@ export default async function SubjectPage({
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/");
+  if (!session.user.approved) redirect("/pending-approval");
 
   const { slug } = await params;
-  const userId = (session.user as { id: string }).id;
+  const userId = session.user.id;
 
   const curriculum = await prisma.curriculum.findUnique({
     where: { slug },
@@ -30,6 +31,7 @@ export default async function SubjectPage({
             include: {
               masteries: {
                 where: { userId },
+                include: { subMasteries: true },
               },
             },
           },
@@ -48,8 +50,12 @@ export default async function SubjectPage({
   const reviewCount = allConcepts.filter((c: Concept) => {
     const m = c.masteries[0];
     if (!m) return false;
-    const current = calculateCurrentMastery(m.score, m.decayRate, m.lastReviewedAt);
-    return current < getReviewThreshold(m.score);
+    const overallDue = calculateCurrentMastery(m.score, m.decayRate, m.lastReviewedAt) < getReviewThreshold(m.score);
+    const anySubDue = (m.subMasteries ?? []).some(
+      (s: { score: number; decayRate: number; lastReviewedAt: Date }) =>
+        calculateCurrentMastery(s.score, s.decayRate, s.lastReviewedAt) < getReviewThreshold(s.score)
+    );
+    return overallDue || anySubDue;
   }).length;
 
   return (
@@ -81,6 +87,13 @@ export default async function SubjectPage({
             score: c.masteries[0].score,
             decayRate: c.masteries[0].decayRate,
             lastReviewedAt: c.masteries[0].lastReviewedAt.toISOString(),
+            subMasteries: (c.masteries[0].subMasteries ?? []).map(
+              (s: { score: number; decayRate: number; lastReviewedAt: Date }) => ({
+                score: s.score,
+                decayRate: s.decayRate,
+                lastReviewedAt: s.lastReviewedAt.toISOString(),
+              })
+            ),
           }))}
       />
 

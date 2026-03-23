@@ -11,6 +11,9 @@ export async function GET(
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!session.user.approved) {
+    return NextResponse.json({ error: "Account not approved" }, { status: 403 });
+  }
 
   const { conceptId } = await params;
 

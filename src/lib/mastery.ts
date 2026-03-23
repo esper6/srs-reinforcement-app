@@ -1,19 +1,19 @@
 /**
  * Calculate the review threshold based on original score.
  * Strong concepts trigger later (you still remember most of it).
- * Weak concepts trigger sooner (fragile knowledge).
+ * Weak concepts trigger very soon (fragile knowledge needs reinforcement).
  *
- * Original Score | Threshold | Drop before review
- * 90+            | ~60%      | ~33% drop
- * 60-89          | ~40%      | ~40% drop
- * 30-59          | ~25%      | ~50% drop
- * <30            | ~15%      | review very soon
+ * Original Score | Threshold | Approx days to trigger (decay ~0.1)
+ * 90+            | ~60%      | ~4 days
+ * 60-89          | ~45%      | ~3 days
+ * 30-59          | ~75%      | ~1-2 days  (high threshold = triggers fast)
+ * <30            | ~85%      | <1 day     (almost immediate review)
  */
 export function getReviewThreshold(originalScore: number): number {
   if (originalScore >= 90) return originalScore * 0.67;
   if (originalScore >= 60) return originalScore * 0.55;
-  if (originalScore >= 30) return originalScore * 0.45;
-  return originalScore * 0.5;
+  if (originalScore >= 30) return originalScore * 0.75;
+  return originalScore * 0.85;
 }
 
 export function calculateCurrentMastery(

@@ -62,4 +62,87 @@ npm run dev -- -p 3003
 
 ## Adding Curricula
 
-Add to `curricula-export.json` and re-run `npm run seed`. The seed script upserts by slug so it's safe to re-run. Each concept needs a title, description, lesson markdown, and order. The AI generates all questions dynamically from the lesson markdown — no need to author prompts.
+### Quick Start
+
+1. Add your curriculum JSON object to the array in `curricula-export.json`
+2. Run `npm run seed` (upserts by slug — safe to re-run)
+
+### JSON Schema
+
+Each curriculum is a single object in the `curricula-export.json` array. **Keys are PascalCase.**
+
+```json
+{
+  "Name": "Curriculum Name",
+  "Slug": "curriculum-slug",
+  "Description": "One-line description of the subject area",
+  "Language": "",
+  "IconClass": "",
+  "Order": 1,
+  "Sections": [
+    {
+      "Name": "Section Name",
+      "Concepts": [
+        {
+          "Title": "Concept Title",
+          "Description": "One-line concept description",
+          "LessonMarkdown": "### Concept Title\n\nFull markdown lesson...",
+          "Order": 1,
+          "Prompts": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `Slug` | Yes | URL-safe, unique across all curricula |
+| `Order` | Yes | Controls display order on the dashboard |
+| `Sections` | Yes | 4-6 per curriculum, ordered by progression |
+| `Concepts` | Yes | 5 per section recommended |
+| `LessonMarkdown` | Yes | The source of truth — Claude assesses and teaches from this |
+| `Description` | Yes | Short summary for each concept |
+| `Prompts` | Yes | Pass an empty array `[]` — the AI generates all questions dynamically |
+| `Language`, `IconClass` | Yes | Can be empty strings |
+
+### Lesson Markdown Requirements
+
+The `LessonMarkdown` is the most important field. Claude uses it as the sole reference material during Socratic assessment. A poorly structured lesson produces poor assessments.
+
+**Structure:** Each lesson should have **3-5 clearly delineated sections**, each mapping to one assessable facet (sub-mastery). Use `####` subheadings to separate facets.
+
+**Per facet, cover four levels:**
+- **What** — Definition (what is this thing?)
+- **Why** — Motivation (why does it matter? what problem does it solve?)
+- **How** — Mechanism (how does it actually work under the hood?)
+- **When** — Judgment (when should you use it vs. alternatives? what are the trade-offs?)
+
+These four levels give Claude room to probe at different depths. A student who knows the "what" but not the "why" scores ~25-40% on that facet.
+
+**Length:** 800-1500 words per lesson.
+
+**Do:**
+- Use narrative that connects ideas ("This matters because...", "The trade-off is...")
+- Include concrete examples and analogies
+- Use contrast ("X is like Y, but differs because Z")
+
+**Don't:**
+- Write bullet-point glossaries — Claude can't have a Socratic conversation about a list of definitions
+- Make facets overlap with other concepts in the same section
+- Write concepts so narrow they only have 1-2 facets (merge them) or so broad they need 8+ (split them)
+
+**The test:** Could a tutor have a meaningful 10-minute conversation assessing this concept? If yes, the lesson is scoped right.
+
+### Seeding
+
+```bash
+# Seed local dev database
+npm run seed
+
+# Seed production database
+DATABASE_URL="your-prod-connection-string" npm run seed
+```
+
+The seed script upserts curricula by slug and deletes/recreates sections and concepts on each run. Existing mastery data for a curriculum is **not** affected — students keep their scores even if the lesson content is updated.

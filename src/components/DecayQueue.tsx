@@ -3,12 +3,19 @@
 import { calculateCurrentMastery, getReviewThreshold } from "@/lib/mastery";
 import Link from "next/link";
 
+interface SubMasteryItem {
+  score: number;
+  decayRate: number;
+  lastReviewedAt: string;
+}
+
 interface DecayItem {
   conceptId: string;
   title: string;
   score: number;
   decayRate: number;
   lastReviewedAt: string;
+  subMasteries?: SubMasteryItem[];
 }
 
 interface DecayQueueProps {
@@ -51,8 +58,19 @@ export default function DecayQueue({ items }: DecayQueueProps) {
   const withDecay = items.map((item) => {
     const lastReviewed = new Date(item.lastReviewedAt);
     const current = calculateCurrentMastery(item.score, item.decayRate, lastReviewed);
-    const timeLeft = timeUntilDue(item.score, item.decayRate, lastReviewed);
-    const isDue = current < getReviewThreshold(item.score);
+    const overallDue = current < getReviewThreshold(item.score);
+    const anySubDue = (item.subMasteries ?? []).some((s) => {
+      const subCurrent = calculateCurrentMastery(s.score, s.decayRate, new Date(s.lastReviewedAt));
+      return subCurrent < getReviewThreshold(s.score);
+    });
+    const isDue = overallDue || anySubDue;
+
+    // Time left uses the soonest due — either overall or weakest sub-mastery
+    let timeLeft = timeUntilDue(item.score, item.decayRate, lastReviewed);
+    if (anySubDue && !overallDue) {
+      timeLeft = "Due now";
+    }
+
     return { ...item, current, timeLeft, isDue, lastReviewed };
   });
 

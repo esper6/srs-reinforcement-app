@@ -131,25 +131,44 @@ export default function ChatInterface({
         </div>
       </div>
 
-      {graphRevealed ? (
-        /* ── Post-reveal: 3-panel layout ── */
-        <>
-          {/* Assessment messages — collapses when lesson is expanded */}
-          <div className={`panel-collapse ${showLesson ? "collapsed" : ""}`}>
-            <div>
-              <div className="max-h-[30vh] overflow-y-auto border-b border-[var(--border-retro)]">
-                <div className="px-4 py-4 space-y-4">
-                  {assessmentMessages.map((msg, i) => (
-                    <MessageBubble key={i} role={msg.role} content={msg.content} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* ── Single scrollable chat area ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {/* Assessment messages */}
+        {assessmentMessages.map((msg, i) => (
+          <MessageBubble key={i} role={msg.role} content={msg.content} />
+        ))}
 
-          {/* Graph + lesson card */}
-          <div className={`${showLesson ? "flex-1 flex flex-col min-h-0" : "shrink-0"} border-b border-[var(--border-retro)] bg-[var(--surface)] overflow-hidden`}>
-            <div className="shrink-0 px-4 pt-4 pb-3 border-b border-[var(--border-retro)]">
+        {/* Loading indicator (pre-mastery) */}
+        {!graphRevealed && isLoading && messages[messages.length - 1]?.content === "" && (
+          <div className="flex gap-1 px-4 py-2">
+            <span className="w-2 h-2 bg-[var(--neon-cyan)] rounded-full animate-bounce opacity-60" />
+            <span className="w-2 h-2 bg-[var(--neon-cyan)] rounded-full animate-bounce [animation-delay:0.1s] opacity-60" />
+            <span className="w-2 h-2 bg-[var(--neon-cyan)] rounded-full animate-bounce [animation-delay:0.2s] opacity-60" />
+          </div>
+        )}
+
+        {/* "Masteries Updated!" button — appears inline after the wrap-up message */}
+        {masteryResult && !showGraph && (
+          <div className="flex justify-center py-4">
+            <button
+              onClick={() => setShowGraph(true)}
+              className="group relative px-6 py-3 rounded-lg font-[family-name:var(--font-share-tech-mono)] text-sm font-medium animate-pulse-glow transition-all duration-300 hover:scale-105 active:scale-95"
+              style={{
+                background: "rgba(0, 255, 136, 0.08)",
+                border: "1px solid var(--neon-green)",
+                color: "var(--neon-green)",
+              }}
+            >
+              <span className="glow-green">Masteries Updated!</span>
+              <span className="block text-[10px] opacity-50 mt-0.5">Click to view your scores</span>
+            </button>
+          </div>
+        )}
+
+        {/* Inline mastery card */}
+        {graphRevealed && (
+          <div className="border border-[var(--border-retro)] bg-[var(--surface)] rounded-lg overflow-hidden">
+            <div className="px-4 pt-4 pb-3 border-b border-[var(--border-retro)]">
               <div className="flex items-center justify-between">
                 <h3 className="text-[var(--neon-green)] text-sm font-[family-name:var(--font-share-tech-mono)] glow-green">
                   Mastery: {masteryResult.score}%
@@ -161,7 +180,7 @@ export default function ChatInterface({
             </div>
 
             {masteryResult.subMasteries.length > 0 && (
-              <div className="shrink-0 px-4 py-3">
+              <div className="px-4 py-3">
                 <SubMasteryBreakdown
                   subMasteries={masteryResult.subMasteries}
                   overallScore={masteryResult.score}
@@ -170,19 +189,19 @@ export default function ChatInterface({
             )}
 
             {lessonMarkdown && (
-              <div className={`border-t border-[var(--border-retro)] ${showLesson ? "flex-1 flex flex-col min-h-0" : ""}`}>
+              <div className="border-t border-[var(--border-retro)]">
                 <button
                   onClick={() => setShowLesson((v) => !v)}
-                  className="shrink-0 w-full px-4 py-2.5 text-left text-xs font-[family-name:var(--font-share-tech-mono)] text-[var(--foreground)] opacity-40 hover:opacity-70 hover:bg-[var(--surface-light)] transition-all flex items-center gap-2"
+                  className="w-full px-4 py-2.5 text-left text-xs font-[family-name:var(--font-share-tech-mono)] text-[var(--foreground)] opacity-40 hover:opacity-70 hover:bg-[var(--surface-light)] transition-all flex items-center gap-2"
                 >
                   <span className="transition-transform duration-200" style={{ display: "inline-block", transform: showLesson ? "rotate(90deg)" : "rotate(0deg)" }}>
                     &#9656;
                   </span>
                   {showLesson ? "Hide Lesson" : "Show Lesson"}
                 </button>
-                <div className={`panel-expand ${showLesson ? "expanded" : ""} ${showLesson ? "flex-1 min-h-0" : ""}`}>
-                  <div className={showLesson ? "flex-1 min-h-0 flex flex-col" : ""}>
-                    <div className={`${showLesson ? "flex-1" : ""} overflow-y-auto px-4 pb-4 text-sm text-[var(--foreground)] opacity-60 leading-relaxed border-t border-[var(--border-retro)] pt-3 prose prose-invert prose-sm max-w-none`}>
+                <div className={`panel-expand ${showLesson ? "expanded" : ""}`}>
+                  <div>
+                    <div className="px-4 pb-4 text-sm text-[var(--foreground)] opacity-60 leading-relaxed border-t border-[var(--border-retro)] pt-3 prose prose-invert prose-sm max-w-none">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{lessonMarkdown}</ReactMarkdown>
                     </div>
                   </div>
@@ -190,91 +209,49 @@ export default function ChatInterface({
               </div>
             )}
           </div>
+        )}
 
-          {/* Extra credit messages — collapses when lesson is expanded */}
-          <div className={`panel-collapse ${showLesson ? "collapsed" : ""} ${!showLesson ? "flex-1" : ""}`}>
-            <div className={`${!showLesson ? "h-full" : ""}`}>
-              <div className="h-full overflow-y-auto transition-colors duration-700" style={{ background: "var(--extra-credit-bg)" }}>
-                {/* Suggested prompts — shown before any extra credit messages */}
-                {extraCreditMessages.length === 0 && suggestedPrompts.length > 0 && !isLoading && (
-                  <div className="px-4 pt-4 pb-2">
-                    <p className="text-[10px] font-[family-name:var(--font-share-tech-mono)] mb-2.5 uppercase tracking-wider" style={{ color: "var(--extra-credit-accent)", opacity: 0.35 }}>
-                      Suggested topics
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestedPrompts.map((prompt, i) => (
-                        <button
-                          key={i}
-                          onClick={() => sendMessage(prompt)}
-                          className="text-xs font-[family-name:var(--font-share-tech-mono)] px-3 py-1.5 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-95 cursor-pointer text-left"
-                          style={{
-                            background: "var(--extra-credit-surface-light)",
-                            border: "1px solid var(--extra-credit-border)",
-                            color: "var(--extra-credit-accent)",
-                          }}
-                        >
-                          {prompt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {extraCreditMessages.length > 0 && (
-                  <div className="px-4 py-4 space-y-4">
-                    {extraCreditMessages.map((msg, i) => (
-                      <MessageBubble key={`ec-${i}`} role={msg.role} content={msg.content} warm />
-                    ))}
-                  </div>
-                )}
-
-                {isLoading && messages[messages.length - 1]?.content === "" && (
-                  <div className="flex gap-1 px-8 py-2">
-                    <span className="w-2 h-2 rounded-full animate-bounce opacity-60" style={{ background: "var(--extra-credit-accent)" }} />
-                    <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:0.1s] opacity-60" style={{ background: "var(--extra-credit-accent)" }} />
-                    <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:0.2s] opacity-60" style={{ background: "var(--extra-credit-accent)" }} />
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
+        {/* Suggested prompts — shown after graph, before extra credit messages */}
+        {graphRevealed && extraCreditMessages.length === 0 && suggestedPrompts.length > 0 && !isLoading && (
+          <div className="pt-2 pb-1">
+            <p className="text-[10px] font-[family-name:var(--font-share-tech-mono)] mb-2.5 uppercase tracking-wider" style={{ color: "var(--extra-credit-accent)", opacity: 0.35 }}>
+              Suggested topics
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {suggestedPrompts.map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => sendMessage(prompt)}
+                  className="text-xs font-[family-name:var(--font-share-tech-mono)] px-3 py-1.5 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-95 cursor-pointer text-left"
+                  style={{
+                    background: "var(--extra-credit-surface-light)",
+                    border: "1px solid var(--extra-credit-border)",
+                    color: "var(--extra-credit-accent)",
+                  }}
+                >
+                  {prompt}
+                </button>
+              ))}
             </div>
           </div>
-        </>
-      ) : (
-        /* ── Pre-reveal: single scrollable area ── */
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          {displayMessages.map((msg, i) => (
-            <MessageBubble key={i} role={msg.role} content={msg.content} />
-          ))}
-          {isLoading && messages[messages.length - 1]?.content === "" && (
-            <div className="flex gap-1 px-4 py-2">
-              <span className="w-2 h-2 bg-[var(--neon-cyan)] rounded-full animate-bounce opacity-60" />
-              <span className="w-2 h-2 bg-[var(--neon-cyan)] rounded-full animate-bounce [animation-delay:0.1s] opacity-60" />
-              <span className="w-2 h-2 bg-[var(--neon-cyan)] rounded-full animate-bounce [animation-delay:0.2s] opacity-60" />
-            </div>
-          )}
+        )}
 
-          {/* "Masteries Updated!" button — appears inline after the wrap-up message */}
-          {masteryResult && !showGraph && (
-            <div className="flex justify-center py-4">
-              <button
-                onClick={() => setShowGraph(true)}
-                className="group relative px-6 py-3 rounded-lg font-[family-name:var(--font-share-tech-mono)] text-sm font-medium animate-pulse-glow transition-all duration-300 hover:scale-105 active:scale-95"
-                style={{
-                  background: "rgba(0, 255, 136, 0.08)",
-                  border: "1px solid var(--neon-green)",
-                  color: "var(--neon-green)",
-                }}
-              >
-                <span className="glow-green">Masteries Updated!</span>
-                <span className="block text-[10px] opacity-50 mt-0.5">Click to view your scores</span>
-              </button>
-            </div>
-          )}
+        {/* Extra credit messages */}
+        {graphRevealed && extraCreditMessages.map((msg, i) => (
+          <MessageBubble key={`ec-${i}`} role={msg.role} content={msg.content} warm />
+        ))}
 
-          <div ref={messagesEndRef} />
-        </div>
-      )}
+        {/* Loading indicator (extra credit) */}
+        {graphRevealed && isLoading && messages[messages.length - 1]?.content === "" && (
+          <div className="flex gap-1 px-4 py-2">
+            <span className="w-2 h-2 rounded-full animate-bounce opacity-60" style={{ background: "var(--extra-credit-accent)" }} />
+            <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:0.1s] opacity-60" style={{ background: "var(--extra-credit-accent)" }} />
+            <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:0.2s] opacity-60" style={{ background: "var(--extra-credit-accent)" }} />
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
 
       {/* Input */}
       <form

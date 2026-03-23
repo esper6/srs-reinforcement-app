@@ -22,21 +22,37 @@ export default function Nav() {
 
         <div className="flex items-center gap-4">
           <Link
-            href="/review"
-            className="text-[var(--neon-magenta)] hover:text-white text-sm font-[family-name:var(--font-share-tech-mono)] transition-colors"
-          >
-            Reviews
-          </Link>
-          <Link
             href="/dashboard"
             className="text-[var(--neon-green)] hover:text-white text-sm font-[family-name:var(--font-share-tech-mono)] transition-colors"
           >
             Subjects
           </Link>
+          <Link
+            href="/import"
+            className="text-[var(--neon-purple)] hover:text-white text-sm font-[family-name:var(--font-share-tech-mono)] transition-colors"
+          >
+            Import
+          </Link>
+          {session.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+            <Link
+              href="/admin"
+              className="text-[var(--neon-magenta)] hover:text-white text-sm font-[family-name:var(--font-share-tech-mono)] transition-colors"
+            >
+              Admin
+            </Link>
+          )}
+
+          <Link
+            href="/settings"
+            className="text-[var(--foreground)]/40 hover:text-white text-sm font-[family-name:var(--font-share-tech-mono)] transition-colors"
+          >
+            Settings
+          </Link>
 
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="User menu"
               className="w-8 h-8 rounded-full overflow-hidden border-2 border-[var(--border-retro)] hover:border-[var(--neon-cyan)] transition-colors"
             >
               {session.user?.image ? (

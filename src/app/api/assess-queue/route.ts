@@ -8,8 +8,11 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!session.user.approved) {
+    return NextResponse.json({ error: "Account not approved" }, { status: 403 });
+  }
 
-  const userId = (session.user as { id: string }).id;
+  const userId = session.user.id;
   const slug = req.nextUrl.searchParams.get("subject");
 
   if (!slug) {
