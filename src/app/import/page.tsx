@@ -7,6 +7,7 @@ interface ConceptPreview {
   Title: string;
   Description: string;
   LessonMarkdown: string;
+  Vocab?: { Term: string; Definition: string }[];
 }
 
 interface SectionPreview {
@@ -71,7 +72,11 @@ Output ONLY valid JSON. No commentary before or after. Keys are PascalCase. The 
           "Description": "One-line concept description",
           "LessonMarkdown": "### Concept Title\\n\\nFull lesson content here...",
           "Order": 1,
-          "Prompts": []
+          "Prompts": [],
+          "Vocab": [
+            {"Term": "key term", "Definition": "concise definition (1-2 sentences)"},
+            {"Term": "another term", "Definition": "its meaning"}
+          ]
         }
       ]
     }
@@ -86,6 +91,7 @@ Output ONLY valid JSON. No commentary before or after. Keys are PascalCase. The 
 - **Slug**: lowercase, hyphens, URL-safe, unique (e.g. \`graph-algorithms\`)
 - **Order**: sequential integers starting at 1 for both sections and concepts
 - **Prompts**: always an empty array \`[]\`
+- **Vocab**: array of 5-10 key terms per concept. Each has "Term" and "Definition". Definitions should be concise (1-2 sentences), self-contained, and capture the core meaning. These are used for flashcard drills separate from the Socratic assessment.
 - **Language** and **IconClass**: always empty strings \`""\`
 - Sections should build on each other — earlier sections establish vocabulary that later sections assume
 - No overlapping concepts within the same section — each concept owns its territory
@@ -130,6 +136,7 @@ For each concept, ask: "Could a tutor have a meaningful 10-minute conversation a
 Generate the full curriculum JSON for the topic above. Remember:
 - 4-6 sections, 5 concepts each
 - Every lesson 800-1500 words with 3-5 facet sections
+- 5-10 vocab terms per concept with concise definitions
 - Narrative style, not bullet lists
 - Output ONLY the JSON, nothing else`;
 
@@ -302,6 +309,9 @@ export default function ImportPage() {
                           {concept.LessonMarkdown && (
                             <span className="text-[var(--foreground)]/30 ml-2 text-xs">
                               {concept.LessonMarkdown.length.toLocaleString()} chars
+                          {concept.Vocab && concept.Vocab.length > 0 && (
+                            <> &middot; {concept.Vocab.length} vocab</>
+                          )}
                             </span>
                           )}
                         </div>

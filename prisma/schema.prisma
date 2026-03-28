@@ -47,6 +47,7 @@ model User {
   masteries         ConceptMastery[]
   chatSessions      ChatSession[]
   apiKeys           UserApiKey[]
+  vocabProgress     UserVocabProgress[]
 }
 
 model UserApiKey {
@@ -106,6 +107,37 @@ model Concept {
   section        Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   masteries      ConceptMastery[]
   chatSessions   ChatSession[]
+  vocabWords     VocabWord[]
+}
+
+model VocabWord {
+  id         String              @id @default(cuid())
+  conceptId  String
+  term       String
+  definition String              @db.Text
+  order      Int                 @default(0)
+  concept    Concept             @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  progress   UserVocabProgress[]
+
+  @@index([conceptId])
+}
+
+model UserVocabProgress {
+  id           String    @id @default(cuid())
+  userId       String
+  vocabWordId  String
+  streak       Int       @default(0)
+  easeFactor   Float     @default(2.5)
+  interval     Float     @default(4)
+  nextReviewAt DateTime  @default(now())
+  totalCorrect Int       @default(0)
+  totalWrong   Int       @default(0)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabWord    VocabWord @relation(fields: [vocabWordId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vocabWordId])
+  @@index([userId])
+  @@index([vocabWordId])
 }
 
 // ─── User Progress ───

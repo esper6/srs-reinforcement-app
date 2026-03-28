@@ -15,6 +15,12 @@ const MODELS: Record<LlmProvider, string> = {
   GOOGLE: "gemini-2.5-flash",
 };
 
+const CHEAP_MODELS: Record<LlmProvider, string> = {
+  ANTHROPIC: "claude-haiku-4-5-20251001",
+  OPENAI: "gpt-4o-mini",
+  GOOGLE: "gemini-2.0-flash-lite",
+};
+
 export async function streamChatResponse(
   systemPrompt: string,
   messages: { role: "user" | "assistant"; content: string }[],
@@ -176,5 +182,51 @@ async function streamGoogle(
   } catch (error) {
     console.error("Google API error:", error);
     return errorStream();
+  }
+}
+
+// ─── Non-streaming single response (for grading, etc.) ───
+
+export async function singleChatResponse(
+  systemPrompt: string,
+  userMessage: string,
+  config: LlmConfig,
+  useCheapModel: boolean = false,
+  maxTokens: number = 300
+): Promise<string> {
+  const model = useCheapModel ? CHEAP_MODELS[config.provider] : MODELS[config.provider];
+  switch (config.provider) {
+    case "ANTHROPIC": {
+      const client = new Anthropic({ apiKey: config.apiKey });
+      const res = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      });
+      const block = res.content[0];
+      return block.type === "text" ? block.text : "";
+    }
+    case "OPENAI": {
+      const client = new OpenAI({ apiKey: config.apiKey });
+      const res = await client.chat.completions.create({
+        model,
+        max_tokens: maxTokens,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+      });
+      return res.choices[0]?.message?.content ?? "";
+    }
+    case "GOOGLE": {
+      const client = new GoogleGenAI({ apiKey: config.apiKey });
+      const res = await client.models.generateContent({
+        model,
+        config: { maxOutputTokens: maxTokens, systemInstruction: systemPrompt },
+        contents: [{ role: "user", parts: [{ text: userMessage }] }],
+      });
+      return res.text ?? "";
+    }
   }
 }

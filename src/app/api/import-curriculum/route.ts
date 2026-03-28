@@ -3,12 +3,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
+interface VocabInput {
+  Term: string;
+  Definition: string;
+}
+
 interface ConceptInput {
   Title: string;
   Description: string;
   LessonMarkdown: string;
   Order: number;
   Prompts: unknown[];
+  Vocab?: VocabInput[];
 }
 
 interface SectionInput {
@@ -30,6 +36,9 @@ interface CurriculumInput {
 const MAX_SECTIONS = 10;
 const MAX_CONCEPTS_PER_SECTION = 15;
 const MAX_LESSON_CHARS = 15000;
+const MAX_VOCAB_PER_CONCEPT = 20;
+const MAX_TERM_CHARS = 200;
+const MAX_DEFINITION_CHARS = 1000;
 const MAX_NAME_CHARS = 200;
 const MAX_SLUG_CHARS = 80;
 const MAX_DESCRIPTION_CHARS = 500;
@@ -105,6 +114,30 @@ function validateCurriculum(data: unknown): { valid: true; curriculum: Curriculu
       }
       if ((concept.LessonMarkdown as string).length > MAX_LESSON_CHARS) {
         return { valid: false, error: `Concept "${concept.Title}": LessonMarkdown is too long (${(concept.LessonMarkdown as string).length} chars, max ${MAX_LESSON_CHARS})` };
+      }
+      // Validate optional Vocab array
+      if (concept.Vocab !== undefined) {
+        if (!Array.isArray(concept.Vocab)) {
+          return { valid: false, error: `Concept "${concept.Title}": "Vocab" must be an array` };
+        }
+        if ((concept.Vocab as unknown[]).length > MAX_VOCAB_PER_CONCEPT) {
+          return { valid: false, error: `Concept "${concept.Title}": Too many vocab words (max ${MAX_VOCAB_PER_CONCEPT})` };
+        }
+        for (let k = 0; k < (concept.Vocab as unknown[]).length; k++) {
+          const v = (concept.Vocab as Record<string, unknown>[])[k];
+          if (!v.Term || typeof v.Term !== "string") {
+            return { valid: false, error: `Concept "${concept.Title}", Vocab ${k + 1}: Missing or invalid "Term"` };
+          }
+          if ((v.Term as string).length > MAX_TERM_CHARS) {
+            return { valid: false, error: `Concept "${concept.Title}", Vocab "${v.Term}": Term too long (max ${MAX_TERM_CHARS} chars)` };
+          }
+          if (!v.Definition || typeof v.Definition !== "string") {
+            return { valid: false, error: `Concept "${concept.Title}", Vocab "${v.Term}": Missing or invalid "Definition"` };
+          }
+          if ((v.Definition as string).length > MAX_DEFINITION_CHARS) {
+            return { valid: false, error: `Concept "${concept.Title}", Vocab "${v.Term}": Definition too long (max ${MAX_DEFINITION_CHARS} chars)` };
+          }
+        }
       }
     }
   }
@@ -203,6 +236,7 @@ export async function POST(req: NextRequest) {
 
     // Create sections and concepts
     let totalConcepts = 0;
+    let totalVocab = 0;
     for (const [sIdx, sec] of cur.Sections.entries()) {
       const section = await prisma.section.create({
         data: {
@@ -213,7 +247,7 @@ export async function POST(req: NextRequest) {
       });
 
       for (const concept of sec.Concepts) {
-        await prisma.concept.create({
+        const newConcept = await prisma.concept.create({
           data: {
             title: stripHtml(concept.Title).trim(),
             description: stripHtml(concept.Description || "").trim(),
@@ -223,6 +257,21 @@ export async function POST(req: NextRequest) {
           },
         });
         totalConcepts++;
+
+        // Create vocab words if present
+        if (concept.Vocab && concept.Vocab.length > 0) {
+          for (const [vIdx, vocab] of concept.Vocab.entries()) {
+            await prisma.vocabWord.create({
+              data: {
+                conceptId: newConcept.id,
+                term: stripHtml(vocab.Term).trim(),
+                definition: stripHtml(vocab.Definition).trim(),
+                order: vIdx,
+              },
+            });
+          }
+          totalVocab += concept.Vocab.length;
+        }
       }
     }
 
@@ -232,6 +281,7 @@ export async function POST(req: NextRequest) {
       slug: cur.Slug,
       sections: cur.Sections.length,
       concepts: totalConcepts,
+      vocab: totalVocab,
     });
   } catch (error) {
     console.error("Import error:", error);

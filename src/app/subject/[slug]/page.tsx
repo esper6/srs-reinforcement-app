@@ -33,6 +33,9 @@ export default async function SubjectPage({
                 where: { userId },
                 include: { subMasteries: true },
               },
+              vocabWords: {
+                include: { progress: { where: { userId } } },
+              },
             },
           },
         },
@@ -58,6 +61,16 @@ export default async function SubjectPage({
     return overallDue || anySubDue;
   }).length;
 
+  // Count due vocab words
+  const now = new Date();
+  type VocabWord = Concept["vocabWords"][number];
+  const vocabDueCount = allConcepts.reduce((count: number, c: Concept) => {
+    return count + c.vocabWords.filter((v: VocabWord) => {
+      if (v.progress.length === 0) return true; // new word = due
+      return new Date(v.progress[0].nextReviewAt) <= now;
+    }).length;
+  }, 0);
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 w-full">
       <Link
@@ -76,6 +89,7 @@ export default async function SubjectPage({
         slug={slug}
         unstartedCount={unstartedCount}
         reviewCount={reviewCount}
+        vocabDueCount={vocabDueCount}
       />
 
       <DecayQueue

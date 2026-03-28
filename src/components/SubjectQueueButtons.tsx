@@ -4,15 +4,19 @@ interface SubjectQueueButtonsProps {
   slug: string;
   unstartedCount: number;
   reviewCount: number;
+  vocabDueCount: number;
 }
 
 export default function SubjectQueueButtons({
   slug,
   unstartedCount,
   reviewCount,
+  vocabDueCount,
 }: SubjectQueueButtonsProps) {
+  const nothingDue = unstartedCount === 0 && reviewCount === 0 && vocabDueCount === 0;
+
   return (
-    <div className="flex gap-3 mb-8">
+    <div className="flex flex-wrap gap-3 mb-8">
       {unstartedCount > 0 && (
         <Link
           href={`/learn/queue/${slug}`}
@@ -35,9 +39,20 @@ export default function SubjectQueueButtons({
           </span>
         </Link>
       )}
-      {unstartedCount === 0 && reviewCount === 0 && (
+      {vocabDueCount > 0 && (
+        <Link
+          href={`/drill/${slug}`}
+          className="btn-neon-green px-5 py-2.5 rounded-lg text-sm font-medium font-[family-name:var(--font-share-tech-mono)] inline-flex items-center gap-2"
+        >
+          <span>Drill</span>
+          <span className="bg-[var(--neon-green)]/20 text-[var(--neon-green)] px-2 py-0.5 rounded text-xs">
+            {vocabDueCount}
+          </span>
+        </Link>
+      )}
+      {nothingDue && (
         <div className="text-[var(--foreground)] opacity-40 text-sm font-[family-name:var(--font-share-tech-mono)] py-2">
-          All concepts mastered — check back later
+          All caught up — check back later
         </div>
       )}
     </div>
