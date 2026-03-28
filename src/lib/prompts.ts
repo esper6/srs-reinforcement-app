@@ -86,12 +86,16 @@ When ending the session, write a DETAILED summary. This is the student's main fe
 
 Keep it warm but honest. The student benefits from knowing exactly where they stand. After this message, output ALL sub-mastery score tags.`;
 
-export function buildAssessPrompt(conceptTitle: string, lessonMarkdown: string, exchangeCount: number = 0): string {
+export function buildAssessPrompt(conceptTitle: string, lessonMarkdown: string, exchangeCount: number = 0, existingFacets?: string[]): string {
   const paceGuidance = exchangeCount >= 8
     ? `\n\n## WRAP UP NOW\nYou have had ${exchangeCount} exchanges. You MUST end this session NOW. Write your detailed wrap-up summary (see Wrap-Up Message Format above), then output ALL sub-mastery scores immediately. Do NOT ask another question.\n`
     : exchangeCount >= 5
       ? `\n\n## PACE CHECK\nYou have had ${exchangeCount} exchanges so far. You should be wrapping up soon. If you have probed at least 3 facets, end the session after this response — write your detailed wrap-up summary and output sub-mastery scores. Only continue if a major facet is completely untested.\n`
       : "";
+
+  const facetConsistency = existingFacets?.length
+    ? `\n\n## CRITICAL: Use Existing Facet Names\nThis student has been assessed before. You MUST use these EXACT facet names in your sub_mastery tags:\n${existingFacets.map(f => `- ${f}`).join("\n")}\n\nDo NOT rename, rephrase, or create new facets. Use these names exactly as written. This ensures scores are tracked consistently across sessions.`
+    : "";
 
   return `You are an expert Socratic tutor assessing a student's knowledge of "${conceptTitle}".
 
@@ -136,6 +140,7 @@ Do NOT spend more than 2-3 exchanges on a single facet. You are assessing BREADT
 ${SCORING_RULES}
 ${WRAPUP_FORMAT}
 ${SUB_MASTERY_FORMAT}
+${facetConsistency}
 
 ## Tone
 Warm, curious, encouraging. You're genuinely interested in what they know. Keep questions short and direct. Never say "Great question!" or "Let me explain..." — instead say things like "Interesting — what about...?" or "You mentioned X, how does that connect to...?"
@@ -150,8 +155,13 @@ export function buildLearnPrompt(
   lessonMarkdown: string,
   currentScore: number,
   weakAreas: string,
-  exchangeCount: number = 0
+  exchangeCount: number = 0,
+  existingFacets?: string[]
 ): string {
+  const facetConsistency = existingFacets?.length
+    ? `\n\n## CRITICAL: Use Existing Facet Names\nThis student has been assessed before. You MUST use these EXACT facet names in your sub_mastery tags:\n${existingFacets.map(f => `- ${f}`).join("\n")}\n\nDo NOT rename, rephrase, or create new facets. Use these names exactly as written.`
+    : "";
+
   const paceGuidance = exchangeCount >= 6
     ? `\n\n## WRAP UP NOW\nYou have had ${exchangeCount} exchanges. You MUST end this session NOW. Write your detailed wrap-up summary (see Wrap-Up Message Format above), then output ALL sub-mastery scores immediately. Do NOT ask another question.\n`
     : exchangeCount >= 4
@@ -184,6 +194,7 @@ Even in teaching mode, lead with questions before explanations. Use the Socratic
 ${SCORING_RULES}
 ${WRAPUP_FORMAT}
 ${SUB_MASTERY_FORMAT}
+${facetConsistency}
 
 Be encouraging and conversational. Keep your messages concise.
 ${ANTI_INJECTION}

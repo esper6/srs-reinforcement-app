@@ -117,19 +117,26 @@ export async function POST(req: NextRequest) {
     });
 
     if (mode === "ASSESS") {
-      systemPrompt = buildAssessPrompt(concept.title, concept.lessonMarkdown, exchangeCount);
+      const existingFacets = mastery?.subMasteries?.map(
+        (s: { name: string; score: number }) => s.name
+      );
+      systemPrompt = buildAssessPrompt(concept.title, concept.lessonMarkdown, exchangeCount, existingFacets);
     } else if (mode === "LEARN") {
       const weakAreas = mastery?.subMasteries
         ?.sort((a: { score: number }, b: { score: number }) => a.score - b.score)
         .slice(0, 3)
         .map((s: { name: string; score: number }) => `${s.name} (${Math.round(s.score)}%)`)
         .join(", ") ?? "";
+      const existingFacets = mastery?.subMasteries?.map(
+        (s: { name: string; score: number }) => s.name
+      );
       systemPrompt = buildLearnPrompt(
         concept.title,
         concept.lessonMarkdown,
         mastery?.score ?? 0,
         weakAreas,
-        exchangeCount
+        exchangeCount,
+        existingFacets
       );
     } else {
       const daysSince = mastery
