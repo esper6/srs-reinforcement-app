@@ -222,8 +222,25 @@ export default function DrillPage() {
             {current.term}
           </h2>
 
-          {/* Answer input or feedback */}
-          {phase === "feedback" && result ? (
+          {/* New word: show definition first */}
+          {current.isNew && phase === "answering" ? (
+            <div>
+              <div className="bg-[var(--background)] border border-[var(--neon-cyan)]/20 rounded-lg p-4 mb-6">
+                <p className="text-[var(--foreground)]/40 text-[10px] font-[family-name:var(--font-share-tech-mono)] uppercase tracking-wider mb-2">
+                  Definition
+                </p>
+                <p className="text-[var(--foreground)]/80 text-sm leading-relaxed">
+                  {current.definition}
+                </p>
+              </div>
+              <button
+                onClick={handleNext}
+                className="w-full py-2.5 rounded-lg font-[family-name:var(--font-share-tech-mono)] text-sm btn-neon transition-all duration-200"
+              >
+                Got it
+              </button>
+            </div>
+          ) : phase === "feedback" && result ? (
             <div>
               <div className="mb-4">
                 <p
