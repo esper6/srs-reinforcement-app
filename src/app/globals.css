@@ -286,3 +286,264 @@ body::after {
   border-top-color: var(--neon-cyan);
   filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.4));
 }
+
+/* ════════════════════════════════════════════════════════════
+   WINDOWS 2000 THEME — drill page
+   ════════════════════════════════════════════════════════════ */
+
+/* Design tokens */
+:root {
+  --win-bg: #d4d0c8;
+  --win-surface: #ece9d8;
+  --win-titlebar: #000080;
+  --win-titlebar-end: #1084d0;
+  --win-text: #000000;
+  --win-text-muted: #444444;
+  --win-border-light: #ffffff;
+  --win-border-dark: #808080;
+  --win-border-darker: #404040;
+  --win-inset: #ffffff;
+  --win-btn-face: #d4d0c8;
+  --win-highlight: #0a246a;
+  --win-highlight-text: #ffffff;
+}
+
+/* Desktop wallpaper feel for the drill page background */
+.win2k-desktop {
+  background-color: #008080; /* classic teal Windows desktop */
+  font-family: "Tahoma", "MS Sans Serif", "Arial", sans-serif;
+  font-size: 12px;
+}
+
+/* Window chrome */
+.win2k-window {
+  background: var(--win-bg);
+  border-top: 2px solid var(--win-border-light);
+  border-left: 2px solid var(--win-border-light);
+  border-right: 2px solid var(--win-border-darker);
+  border-bottom: 2px solid var(--win-border-darker);
+  box-shadow: 1px 1px 0 var(--win-border-dark), -1px -1px 0 var(--win-border-dark);
+}
+
+/* Title bar */
+.win2k-titlebar {
+  background: linear-gradient(to right, var(--win-titlebar), var(--win-titlebar-end));
+  min-height: 22px;
+}
+
+/* Menu bar */
+.win2k-menubar {
+  background: var(--win-bg);
+  min-height: 20px;
+}
+.win2k-menubar-item {
+  font-size: 11px;
+  font-family: "Tahoma", "MS Sans Serif", sans-serif;
+  color: var(--win-text);
+  padding: 1px 6px;
+  cursor: default;
+}
+
+/* Toolbar */
+.win2k-toolbar {
+  background: var(--win-bg);
+  min-height: 26px;
+}
+.win2k-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  border-left: 1px solid var(--win-border-dark);
+  border-right: 1px solid var(--win-border-light);
+}
+
+/* Window body */
+.win2k-window-body {
+  background: var(--win-bg);
+}
+
+/* Buttons — classic raised bevel */
+.win2k-btn {
+  font-family: "Tahoma", "MS Sans Serif", "Arial", sans-serif;
+  font-size: 11px;
+  color: var(--win-text);
+  background: var(--win-btn-face);
+  border-top: 2px solid var(--win-border-light);
+  border-left: 2px solid var(--win-border-light);
+  border-right: 2px solid var(--win-border-darker);
+  border-bottom: 2px solid var(--win-border-darker);
+  cursor: default;
+  user-select: none;
+  outline: none;
+  transition: none;
+}
+.win2k-btn:active:not(:disabled) {
+  border-top: 2px solid var(--win-border-darker);
+  border-left: 2px solid var(--win-border-darker);
+  border-right: 2px solid var(--win-border-light);
+  border-bottom: 2px solid var(--win-border-light);
+  padding-top: 1px;
+  padding-left: 1px;
+}
+.win2k-btn-normal {
+  padding: 3px 12px;
+  min-width: 70px;
+}
+.win2k-btn-tiny {
+  padding: 1px 5px;
+  min-width: 18px;
+  font-size: 10px;
+  line-height: 1;
+}
+.win2k-btn-primary {
+  border: 2px solid #000000;
+  outline: 1px solid var(--win-border-light);
+  font-weight: bold;
+}
+.win2k-btn-danger {
+  color: #800000;
+}
+
+/* Group box (fieldset style) */
+.win2k-groupbox {
+  border: 1px solid var(--win-border-dark);
+  border-top: 1px solid var(--win-border-dark);
+  background: var(--win-bg);
+}
+.win2k-groupbox-label {
+  font-family: "Tahoma", "MS Sans Serif", sans-serif;
+  font-size: 11px;
+  color: var(--win-text);
+}
+
+/* Inset / sunken panels */
+.win2k-inset {
+  background: var(--win-inset);
+  border-top: 2px solid var(--win-border-dark);
+  border-left: 2px solid var(--win-border-dark);
+  border-right: 2px solid var(--win-border-light);
+  border-bottom: 2px solid var(--win-border-light);
+}
+
+/* Text input */
+.win2k-input {
+  background: #ffffff;
+  border-top: 2px solid var(--win-border-darker);
+  border-left: 2px solid var(--win-border-darker);
+  border-right: 2px solid var(--win-border-light);
+  border-bottom: 2px solid var(--win-border-light);
+  padding: 2px 4px;
+  font-family: "Tahoma", "MS Sans Serif", sans-serif;
+  font-size: 12px;
+  color: var(--win-text);
+  outline: none;
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.15);
+}
+.win2k-input:focus {
+  outline: 1px dotted #000;
+  outline-offset: -3px;
+}
+
+/* Progress bar */
+.win2k-progress-bar {
+  background: #ffffff;
+  border-top: 2px solid var(--win-border-dark);
+  border-left: 2px solid var(--win-border-dark);
+  border-right: 2px solid var(--win-border-light);
+  border-bottom: 2px solid var(--win-border-light);
+  height: 18px;
+  overflow: hidden;
+}
+.win2k-progress-track {
+  background: #ffffff;
+  border-top: 2px solid var(--win-border-dark);
+  border-left: 2px solid var(--win-border-dark);
+  border-right: 2px solid var(--win-border-light);
+  border-bottom: 2px solid var(--win-border-light);
+  overflow: hidden;
+}
+.win2k-progress-fill-solid {
+  background: #000080;
+  height: 100%;
+}
+.win2k-progress-fill {
+  background: repeating-linear-gradient(
+    90deg,
+    #000080 0px, #000080 10px,
+    transparent 10px, transparent 14px
+  );
+  height: 100%;
+  width: 40%;
+}
+
+@keyframes w2k-marching {
+  from { background-position: 0 0; }
+  to   { background-position: 56px 0; }
+}
+
+/* Status bar */
+.win2k-statusbar {
+  background: var(--win-bg);
+  border-top: 1px solid var(--win-border-dark);
+  min-height: 20px;
+}
+.win2k-status-pane {
+  background: var(--win-bg);
+  border-top: 1px solid var(--win-border-dark);
+  border-left: 1px solid var(--win-border-dark);
+  border-right: 1px solid var(--win-border-light);
+  border-bottom: 1px solid var(--win-border-light);
+}
+
+/* Icon badges */
+.win2k-info-icon {
+  width: 32px;
+  height: 32px;
+  background: #0000cc;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  font-style: italic;
+}
+.win2k-check-icon {
+  width: 32px;
+  height: 32px;
+  background: #008000;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Feedback boxes */
+.win2k-feedback-box {
+  border: 2px solid;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: "Tahoma", sans-serif;
+}
+.win2k-feedback-correct {
+  background: #efffef;
+  border-color: #008000;
+  color: #004000;
+}
+.win2k-feedback-wrong {
+  background: #fff0f0;
+  border-color: #c00000;
+  color: #600000;
+}
+
+/* Term display */
+.win2k-term-display {
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
