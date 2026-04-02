@@ -132,6 +132,7 @@ model UserVocabProgress {
   nextReviewAt DateTime  @default(now())
   totalCorrect Int       @default(0)
   totalWrong   Int       @default(0)
+  dismissed    Boolean   @default(false)
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   vocabWord    VocabWord @relation(fields: [vocabWordId], references: [id], onDelete: Cascade)
 

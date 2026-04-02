@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { getStage } from "@/lib/vocab-srs";
 import { NextRequest, NextResponse } from "next/server";
 
-const MAX_QUEUE_SIZE = 25;
+const LESSON_BATCH_SIZE = 5;
+const MAX_REVIEW_SIZE = 25;
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -17,6 +18,8 @@ export async function GET(req: NextRequest) {
 
   const userId = session.user.id;
   const slug = req.nextUrl.searchParams.get("subject");
+  const mode = req.nextUrl.searchParams.get("mode") ?? "reviews";
+
   if (!slug) {
     return NextResponse.json({ error: "Missing subject param" }, { status: 400 });
   }
@@ -64,10 +67,20 @@ export async function GET(req: NextRequest) {
     )
   );
 
-  // Split into new words and due words
-  const newWords = allVocab
-    .filter((v) => !v.progress)
-    .map((v) => ({
+  // Filter out dismissed words
+  const activeVocab = allVocab.filter((v) => !v.progress?.dismissed);
+
+  // New words: no progress record at all
+  const newWords = activeVocab.filter((v) => !v.progress);
+
+  // Due words: have progress, review time has passed, not burned (optional)
+  const dueWords = activeVocab
+    .filter((v) => v.progress && new Date(v.progress.nextReviewAt) <= now)
+    .sort((a, b) => new Date(a.progress!.nextReviewAt).getTime() - new Date(b.progress!.nextReviewAt).getTime());
+
+  if (mode === "lessons") {
+    // Return a batch of new words for the lesson flow
+    const batch = newWords.slice(0, LESSON_BATCH_SIZE).map((v) => ({
       vocabWordId: v.vocabWordId,
       term: v.term,
       definition: v.definition,
@@ -77,25 +90,29 @@ export async function GET(req: NextRequest) {
       isNew: true,
     }));
 
-  const dueWords = allVocab
-    .filter((v) => v.progress && new Date(v.progress.nextReviewAt) <= now)
-    .sort((a, b) => new Date(a.progress!.nextReviewAt).getTime() - new Date(b.progress!.nextReviewAt).getTime())
-    .map((v) => ({
-      vocabWordId: v.vocabWordId,
-      term: v.term,
-      definition: v.definition,
-      conceptTitle: v.conceptTitle,
-      stage: getStage(v.progress!.interval),
-      streak: v.progress!.streak,
-      isNew: false,
-    }));
+    return NextResponse.json({
+      queue: batch,
+      totalNew: newWords.length,
+      totalDue: dueWords.length,
+      totalWords: activeVocab.length,
+    });
+  }
 
-  // Due reviews first, then new words
-  const queue = [...dueWords, ...newWords].slice(0, MAX_QUEUE_SIZE);
+  // Reviews mode: only due words (already learned)
+  const queue = dueWords.slice(0, MAX_REVIEW_SIZE).map((v) => ({
+    vocabWordId: v.vocabWordId,
+    term: v.term,
+    definition: v.definition,
+    conceptTitle: v.conceptTitle,
+    stage: getStage(v.progress!.interval),
+    streak: v.progress!.streak,
+    isNew: false,
+  }));
 
   return NextResponse.json({
     queue,
-    totalDue: dueWords.length + newWords.length,
-    totalWords: allVocab.length,
+    totalNew: newWords.length,
+    totalDue: dueWords.length,
+    totalWords: activeVocab.length,
   });
 }

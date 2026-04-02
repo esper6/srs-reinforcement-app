@@ -17,9 +17,10 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { vocabWordId, answer } = (await req.json()) as {
+  const { vocabWordId, answer, mode } = (await req.json()) as {
     vocabWordId: string;
     answer: string;
+    mode?: "lessons" | "reviews";
   };
 
   if (!vocabWordId || typeof vocabWordId !== "string") {
@@ -69,6 +70,18 @@ export async function POST(req: NextRequest) {
     answer.trim(),
     llmConfig
   );
+
+  // In lesson mode, wrong answers don't touch the DB — just return feedback
+  // so the word cycles back for another attempt
+  if (mode === "lessons" && !gradeResult.correct) {
+    return NextResponse.json({
+      correct: false,
+      feedback: gradeResult.feedback,
+      definition: vocabWord.definition,
+      stage: "Apprentice",
+      streak: 0,
+    });
+  }
 
   // Load or create progress
   const existing = await prisma.userVocabProgress.findUnique({

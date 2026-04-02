@@ -166,6 +166,20 @@ body::after {
     inset 0 0 8px rgba(0, 255, 136, 0.06);
 }
 
+.btn-neon-purple {
+  border-color: var(--neon-purple);
+  color: var(--neon-purple);
+  background: rgba(176, 0, 255, 0.06);
+}
+
+.btn-neon-purple:hover {
+  background: rgba(176, 0, 255, 0.14);
+  box-shadow:
+    0 0 8px rgba(176, 0, 255, 0.3),
+    0 0 24px rgba(176, 0, 255, 0.1),
+    inset 0 0 8px rgba(176, 0, 255, 0.06);
+}
+
 /* ── Glowing progress bars ── */
 .progress-glow-green {
   background: var(--neon-green);

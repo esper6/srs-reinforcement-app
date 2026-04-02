@@ -61,15 +61,20 @@ export default async function SubjectPage({
     return overallDue || anySubDue;
   }).length;
 
-  // Count due vocab words
+  // Count vocab words: new (no progress) vs due for review (has progress, time elapsed)
   const now = new Date();
   type VocabWord = Concept["vocabWords"][number];
-  const vocabDueCount = allConcepts.reduce((count: number, c: Concept) => {
-    return count + c.vocabWords.filter((v: VocabWord) => {
-      if (v.progress.length === 0) return true; // new word = due
-      return new Date(v.progress[0].nextReviewAt) <= now;
-    }).length;
-  }, 0);
+  type VocabProgress = VocabWord["progress"][number];
+  let vocabNewCount = 0;
+  let vocabDueCount = 0;
+  for (const c of allConcepts) {
+    for (const v of c.vocabWords) {
+      const p: VocabProgress | undefined = v.progress[0];
+      if (!p) { vocabNewCount++; continue; }
+      if (p.dismissed) continue;
+      if (new Date(p.nextReviewAt) <= now) vocabDueCount++;
+    }
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 w-full">
@@ -89,6 +94,7 @@ export default async function SubjectPage({
         slug={slug}
         unstartedCount={unstartedCount}
         reviewCount={reviewCount}
+        vocabNewCount={vocabNewCount}
         vocabDueCount={vocabDueCount}
       />
 
