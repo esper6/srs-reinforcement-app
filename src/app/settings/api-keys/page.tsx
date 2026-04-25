@@ -22,10 +22,13 @@ export default async function ApiKeysPage() {
     (k: { provider: string }) => k.provider
   );
 
+  const relayConfigured = !!(process.env.CLAUDE_RELAY_URL && process.env.CLAUDE_RELAY_SECRET);
+
   return (
     <ApiKeysForm
       savedProviders={savedProviders}
       preferredProvider={user.preferredProvider}
+      relayConfigured={relayConfigured}
     />
   );
 }

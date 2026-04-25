@@ -48,20 +48,27 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const providerKey = user.apiKeys.find(
-    (k: { provider: string }) => k.provider === user.preferredProvider
-  );
-  if (!providerKey) {
-    return NextResponse.json(
-      { error: `No API key configured for ${user.preferredProvider}. Add one in Settings.` },
-      { status: 400 }
+  let llmConfig: LlmConfig;
+  if (user.preferredProvider === "CLAUDE_RELAY") {
+    if (!process.env.CLAUDE_RELAY_URL || !process.env.CLAUDE_RELAY_SECRET) {
+      return NextResponse.json(
+        { error: "Claude Relay is not configured on this server." },
+        { status: 500 }
+      );
+    }
+    llmConfig = { provider: "CLAUDE_RELAY", apiKey: "" };
+  } else {
+    const providerKey = user.apiKeys.find(
+      (k: { provider: string }) => k.provider === user.preferredProvider
     );
+    if (!providerKey) {
+      return NextResponse.json(
+        { error: `No API key configured for ${user.preferredProvider}. Add one in Settings.` },
+        { status: 400 }
+      );
+    }
+    llmConfig = { provider: user.preferredProvider, apiKey: decrypt(providerKey.encryptedKey) };
   }
-
-  const llmConfig: LlmConfig = {
-    provider: user.preferredProvider,
-    apiKey: decrypt(providerKey.encryptedKey),
-  };
 
   // Grade the answer
   const gradeResult = await gradeVocabAnswer(

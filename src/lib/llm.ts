@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 
-export type LlmProvider = "ANTHROPIC" | "OPENAI" | "GOOGLE";
+export type LlmProvider = "ANTHROPIC" | "OPENAI" | "GOOGLE" | "CLAUDE_RELAY";
 
 export interface LlmConfig {
   provider: LlmProvider;
@@ -13,12 +13,14 @@ const MODELS: Record<LlmProvider, string> = {
   ANTHROPIC: "claude-sonnet-4-20250514",
   OPENAI: "gpt-4o",
   GOOGLE: "gemini-2.5-flash",
+  CLAUDE_RELAY: "sonnet",
 };
 
 const CHEAP_MODELS: Record<LlmProvider, string> = {
   ANTHROPIC: "claude-haiku-4-5-20251001",
   OPENAI: "gpt-4o-mini",
   GOOGLE: "gemini-2.0-flash-lite",
+  CLAUDE_RELAY: "haiku",
 };
 
 export async function streamChatResponse(
@@ -33,6 +35,8 @@ export async function streamChatResponse(
       return streamOpenAI(systemPrompt, messages, config.apiKey);
     case "GOOGLE":
       return streamGoogle(systemPrompt, messages, config.apiKey);
+    case "CLAUDE_RELAY":
+      return streamRelay(systemPrompt, messages);
   }
 }
 
@@ -185,6 +189,76 @@ async function streamGoogle(
   }
 }
 
+// ─── Claude Relay (via Claude Code CLI) ───
+
+async function streamRelay(
+  systemPrompt: string,
+  messages: { role: "user" | "assistant"; content: string }[]
+): Promise<ReadableStream<Uint8Array>> {
+  const relayUrl = process.env.CLAUDE_RELAY_URL;
+  const relaySecret = process.env.CLAUDE_RELAY_SECRET;
+
+  if (!relayUrl || !relaySecret) {
+    console.error("CLAUDE_RELAY_URL or CLAUDE_RELAY_SECRET not configured");
+    return errorStream();
+  }
+
+  try {
+    const res = await fetch(`${relayUrl}/api/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${relaySecret}`,
+      },
+      body: JSON.stringify({ systemPrompt, messages, model: "sonnet" }),
+    });
+
+    if (!res.ok || !res.body) {
+      console.error("Relay stream error:", res.status, res.statusText);
+      return errorStream();
+    }
+
+    return res.body as ReadableStream<Uint8Array>;
+  } catch (error) {
+    console.error("Relay connection error:", error);
+    return errorStream();
+  }
+}
+
+async function singleRelay(
+  systemPrompt: string,
+  userMessage: string,
+  useCheapModel: boolean
+): Promise<string> {
+  const relayUrl = process.env.CLAUDE_RELAY_URL;
+  const relaySecret = process.env.CLAUDE_RELAY_SECRET;
+
+  if (!relayUrl || !relaySecret) {
+    throw new Error("CLAUDE_RELAY_URL or CLAUDE_RELAY_SECRET not configured");
+  }
+
+  const res = await fetch(`${relayUrl}/api/single`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${relaySecret}`,
+    },
+    body: JSON.stringify({
+      systemPrompt,
+      userMessage,
+      model: useCheapModel ? "haiku" : "sonnet",
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "unknown error");
+    throw new Error(`Relay error (${res.status}): ${detail}`);
+  }
+
+  const data = await res.json();
+  return data.text ?? "";
+}
+
 // ─── Non-streaming single response (for grading, etc.) ───
 
 export async function singleChatResponse(
@@ -194,6 +268,9 @@ export async function singleChatResponse(
   useCheapModel: boolean = false,
   maxTokens: number = 300
 ): Promise<string> {
+  if (config.provider === "CLAUDE_RELAY") {
+    return singleRelay(systemPrompt, userMessage, useCheapModel);
+  }
   const model = useCheapModel ? CHEAP_MODELS[config.provider] : MODELS[config.provider];
   switch (config.provider) {
     case "ANTHROPIC": {

@@ -65,6 +65,7 @@ enum LlmProvider {
   ANTHROPIC
   OPENAI
   GOOGLE
+  CLAUDE_RELAY
 }
 
 model VerificationToken {

@@ -63,9 +63,40 @@ An AI-powered spaced repetition app for learning. Users authenticate with Google
 - Neon Postgres via `@prisma/adapter-pg` (requires `pg.Pool` for transaction support)
 - Prisma 7 with `postinstall` hook for Vercel builds
 - NextAuth v4 with Google provider + PrismaAdapter (database sessions, NOT JWT)
-- Claude API via `@anthropic-ai/sdk` (streaming)
+- Multi-provider LLM: Anthropic, OpenAI, Google, and Claude Relay (via Claude Code CLI)
 - Tailwind CSS v4 with neo-retro theme (CSS vars in `globals.css`)
 - Cloudflare DNS, Neon-Vercel integration for per-environment DB branches
+- **Azure VM** (`greg-w-vm`, East US 2, D2ps_v6 ARM64) — hosts the Claude Relay server, funded by VS Enterprise $150/mo credits
+
+## Claude Relay
+
+The relay server (`claude-relay/`) allows using an enterprise Claude license (via Claude Code CLI) instead of API keys. It runs on the Azure VM and exposes two HTTP endpoints that the Vercel app calls:
+
+- `POST /api/stream` — Streaming chat (spawns `claude --print`, streams SSE back)
+- `POST /api/single` — Single-shot responses (vocab grading, generation)
+
+**Architecture:**
+```
+Vercel (Next.js) → HTTPS → Azure VM (relay) → claude --print → Claude (enterprise license)
+```
+
+**Key files:**
+- `claude-relay/src/index.ts` — Express server, auth, conversation formatting, CLI spawning
+- `src/lib/llm.ts` — `CLAUDE_RELAY` provider (streamRelay, singleRelay functions)
+
+**Env vars on Vercel:** `CLAUDE_RELAY_URL`, `CLAUDE_RELAY_SECRET`
+**Env vars on VM:** `RELAY_SECRET`, `PORT`
+
+Users select "Claude Relay" in Settings → API Keys. No API key needed — the relay uses the CLI's OAuth auth.
+
+## Azure VM (greg-w-vm) — Future Migration Target
+
+The Azure VM (D2ps_v6: 2 ARM64 vCPUs, 8GB RAM, Ubuntu 24.04) is funded by VS Enterprise monthly credits ($150/mo). Currently hosts the Claude Relay. Planned to eventually consolidate:
+
+- **Claude Relay** (now) — `claude-relay/` Express server via systemd
+- **Next.js app** (future) — Move off Vercel, run directly on the VM
+- **Postgres** (future) — Move off Neon, run locally or use Azure Database for PostgreSQL
+- **Nginx** — Reverse proxy + TLS termination for all services
 
 ## Important Gotchas
 

@@ -30,9 +30,11 @@ const PROVIDERS = [
 export default function ApiKeysForm({
   savedProviders,
   preferredProvider,
+  relayConfigured = false,
 }: {
   savedProviders: string[];
   preferredProvider: string;
+  relayConfigured?: boolean;
 }) {
   const router = useRouter();
   const [keys, setKeys] = useState<Record<string, string>>({});
@@ -190,6 +192,52 @@ export default function ApiKeysForm({
             </div>
           );
         })}
+
+        {/* Claude Relay — no API key needed */}
+        <div
+          className={`bg-[var(--surface)] border rounded-lg p-4 transition-all duration-200 ${
+            preferred === "CLAUDE_RELAY"
+              ? "border-[var(--neon-magenta)]/40"
+              : "border-[var(--border-retro)]"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span
+                className="font-[family-name:var(--font-share-tech-mono)] text-sm"
+                style={{ color: "var(--neon-magenta)" }}
+              >
+                Claude Relay
+              </span>
+              <span className="text-[var(--foreground)]/30 text-xs">
+                Claude Code CLI
+              </span>
+              {relayConfigured && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--neon-green)]/10 text-[var(--neon-green)]/70 font-[family-name:var(--font-share-tech-mono)]">
+                  configured
+                </span>
+              )}
+            </div>
+            {relayConfigured && (
+              <button
+                onClick={() => handleSetPreferred("CLAUDE_RELAY")}
+                className={`text-xs font-[family-name:var(--font-share-tech-mono)] px-2 py-1 rounded transition-all duration-200 ${
+                  preferred === "CLAUDE_RELAY"
+                    ? "bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] border border-[var(--neon-cyan)]/30"
+                    : "text-[var(--foreground)]/30 hover:text-[var(--foreground)]/60 border border-transparent hover:border-[var(--border-retro)]"
+                }`}
+              >
+                {preferred === "CLAUDE_RELAY" ? "active" : "set active"}
+              </button>
+            )}
+          </div>
+
+          <p className="text-[var(--foreground)]/40 text-xs">
+            {relayConfigured
+              ? "Routes requests through a Claude Code relay server. No API key needed."
+              : "Not configured. Set CLAUDE_RELAY_URL and CLAUDE_RELAY_SECRET env vars to enable."}
+          </p>
+        </div>
       </div>
     </div>
   );

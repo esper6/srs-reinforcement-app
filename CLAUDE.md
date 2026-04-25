@@ -27,6 +27,15 @@ npm run build              # Production build (always test before push)
 - **Prisma on Vercel**: `postinstall` hook runs `prisma generate` — without this, the build fails because TypeScript can't find the generated client types
 - **Vercel type strictness**: Even if `tsc` passes locally, `next build` on Vercel may fail on implicit `any` in Prisma query callbacks. Always annotate callback params on Prisma results (use local type aliases like `type Section = (typeof result.sections)[number]`)
 
+### Claude Relay (Azure VM)
+- **Azure VM** `greg-w-vm` at `20.242.97.67` (East US 2, D2ps_v6 ARM64, Ubuntu 24.04)
+- **Funded by** VS Enterprise $150/mo credits (subscription `63d1091c`)
+- **Purpose**: Runs Claude Code CLI relay so the app can use enterprise Claude license instead of API keys
+- **Relay server**: `claude-relay/` directory — Express app, deployed via systemd on the VM
+- **Vercel env vars**: `CLAUDE_RELAY_URL` and `CLAUDE_RELAY_SECRET` point to the VM
+- **SSH access**: `ssh -i ~/.ssh/greg-w-vm_key.pem azureuser@20.242.97.67`
+- **Future plans**: Consolidate Next.js app and Postgres onto this VM (move off Vercel + Neon)
+
 ## Architecture Patterns
 
 ### Sub-masteries

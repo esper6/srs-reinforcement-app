@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-const VALID_PROVIDERS = ["ANTHROPIC", "OPENAI", "GOOGLE"] as const;
+const VALID_PROVIDERS = ["ANTHROPIC", "OPENAI", "GOOGLE", "CLAUDE_RELAY"] as const;
 type Provider = (typeof VALID_PROVIDERS)[number];
 
 function isValidProvider(p: string): p is Provider {
@@ -93,17 +93,19 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   }
 
-  // Verify they have a key for this provider
-  const key = await prisma.userApiKey.findUnique({
-    where: {
-      userId_provider: { userId: session.user.id, provider },
-    },
-  });
-  if (!key) {
-    return NextResponse.json(
-      { error: "Add an API key for this provider first" },
-      { status: 400 }
-    );
+  // CLAUDE_RELAY doesn't need an API key — it uses env vars
+  if (provider !== "CLAUDE_RELAY") {
+    const key = await prisma.userApiKey.findUnique({
+      where: {
+        userId_provider: { userId: session.user.id, provider },
+      },
+    });
+    if (!key) {
+      return NextResponse.json(
+        { error: "Add an API key for this provider first" },
+        { status: 400 }
+      );
+    }
   }
 
   await prisma.user.update({
