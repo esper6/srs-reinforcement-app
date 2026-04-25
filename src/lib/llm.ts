@@ -59,6 +59,17 @@ function errorStream(): ReadableStream<Uint8Array> {
   });
 }
 
+// Temporary: show actual relay error in chat for debugging
+function debugErrorStream(detail: string): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(sseEncode(`[Error: ${detail}]`));
+      controller.enqueue(SSE_DONE);
+      controller.close();
+    },
+  });
+}
+
 // ─── Anthropic (Claude) ───
 
 async function streamAnthropic(
@@ -204,7 +215,9 @@ async function streamRelay(
   }
 
   try {
-    const res = await fetch(`${relayUrl}/api/stream`, {
+    const url = `${relayUrl}/api/stream`;
+    console.log("[relay] POST", url);
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -214,14 +227,17 @@ async function streamRelay(
     });
 
     if (!res.ok || !res.body) {
-      console.error("Relay stream error:", res.status, res.statusText);
-      return errorStream();
+      const detail = await res.text().catch(() => "");
+      const msg = `Relay ${res.status}: ${detail || res.statusText}`;
+      console.error("[relay]", msg);
+      return debugErrorStream(msg);
     }
 
     return res.body as ReadableStream<Uint8Array>;
   } catch (error) {
-    console.error("Relay connection error:", error);
-    return errorStream();
+    const msg = `Relay connection failed: ${error instanceof Error ? error.message : error}`;
+    console.error("[relay]", msg);
+    return debugErrorStream(msg);
   }
 }
 
