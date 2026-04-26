@@ -306,27 +306,38 @@ Phased so each chunk lands in a working state. **Tests + manual playtest after e
 
 User action remaining before Phase 3 can be smoke-tested end-to-end: regenerate at least one curriculum (System Design recommended) using the updated prompt and re-import via `/import`. Existing curricula have empty `facets[]` and the round endpoints will refuse them with a clear error.
 
-### Phase 3 — Round UI
-- [ ] New `RoundView` component replacing `ChatInterface` for ROUND/SYNTHESIS modes
-- [ ] Round result screen with three actions (next / extra credit / done)
-- [ ] Wire up `/learn/[conceptId]` and `/review` to use `RoundView`
-- [ ] Keep `ChatInterface` only for Extra Credit mode
+### Phase 3 — Round UI ✓
+- [x] `useRound` hook (SSE streaming, X-Facet-Name header, round_result parsing)
+- [x] `RoundView` — bounded round UI with facet header, Q1/3 counter, hard pacing
+- [x] `RoundResultView` — post-round screen with three actions (next / extra credit / done)
+- [x] Wired `/learn/[conceptId]` to a state machine over loading → gate → round → result
+- [x] `LessonGate` for first-encounter (per "Lesson visibility" rule above)
+- [x] `/review` left on legacy chat — gets retired in Phase 6 cleanup, not Phase 3
 
-### Phase 4 — Decay queue UI
-- [ ] Replace `DecayQueue.tsx` with the pip-chart layout
-- [ ] Update `src/app/subject/[slug]/page.tsx` to use the new queue
-- [ ] "Burn through queue" chained-rounds flow
+### Phase 4 — Decay queue UI ✓
+- [x] New `RoundQueue.tsx` with per-concept pip-chart (4 pips per facet, due highlighted in magenta)
+- [x] Subject page rewrites: drops `DecayQueue` import, computes round-queue data inline from new schema, renders `RoundQueue`
+- [x] `reviewCount` on `SubjectQueueButtons` driven by `totalRoundsDue`
+- [ ] "Burn through queue" chained-rounds flow — deferred (the pip chart already conveys the queue; the chain is a nice-to-have)
 
-### Phase 5 — Synthesis round
-- [ ] Unlock detection: all facets at Expert stage 3
-- [ ] Synthesis prompt + flow
-- [ ] Mastered badge on concept
-- [ ] Cooldown enforcement (1 week)
+### Phase 5 — Synthesis round ✓
+- [x] `useSynthesis` hook + `SynthesisView` capstone UI
+- [x] `SynthesisResultView` — pass = MASTERED celebration, fail = 1-week cooldown screen
+- [x] Page state machine adds `synthesis_gate` (all-facets-at-Expert/3 CTA), `synthesis_cooldown`, `synthesis_in_progress`, `synthesis_result`
+- [x] Cooldown enforced server-side in `/api/synthesis`; surfaced in UI
 
-### Phase 6 — Cleanup
-- [ ] Remove dead prompt functions, dead parsers, dead API routes
-- [ ] Remove old mastery columns once nothing references them
-- [ ] Update `ARCHITECTURE.md` and `CLAUDE.md` to describe new system as the live one (not "redesign in progress")
+### Phase 5b — Extra Credit wiring (added during execution) ✓
+- [x] `useChat` and `ChatInterface` accept `initialExtraCredit` to start in extra-credit mode without an assessment trigger
+- [x] Page `extra_credit` state replaces the placeholder alert with a real chat surface
+
+### Phase 6 — Cleanup (pending — defer until smoke-test validates Phases 3-5)
+- [ ] Remove `buildAssessPrompt` / `buildLearnPrompt` / `buildReviewPrompt` from `src/lib/prompts.ts` and the constants they reference (`SCORING_RULES`, `WRAPUP_FORMAT`, `SUB_MASTERY_FORMAT`)
+- [ ] Remove `parseMasteryTag` / `parseSubMasteryTags` and their strip helpers from `src/lib/claude.ts`
+- [ ] Drop `score` / `decayRate` columns from `ConceptMastery` and `SubConceptMastery` (migration); remove `src/lib/mastery.ts` if nothing else needs it
+- [ ] Remove `ASSESS` / `LEARN` / `REVIEW` from `SessionMode` enum (migration); update `/api/chat` to be Extra-Credit-only
+- [ ] Delete `DecayQueue.tsx`, `MasteryBar.tsx`, `SubMasteryBreakdown.tsx` if no remaining importers
+- [ ] Delete `/review` page and `/api/review` route; remove the Reviews button on `SubjectQueueButtons` (or repurpose to "Rounds")
+- [ ] Update `ARCHITECTURE.md` and `CLAUDE.md` to drop the "Phases 1-5 live, Phase 6 pending" callout and describe the new system as canonical without legacy callouts
 
 ## Open questions deferred
 

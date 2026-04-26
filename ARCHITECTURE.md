@@ -1,9 +1,10 @@
 # MEMORY.dump — Architecture Guide
 
-> ⚠️ **Active Redesign In Progress: Rounds Model**
-> The curriculum/Socratic side is being refactored from long-form interviews + 0-100 mastery scores to a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). Vocab SRS is untouched.
-> See **`docs/rounds-redesign.md`** for the full spec, build phases, and migration plan.
-> Sections of this doc that describe the long-form interview flow, 0-100 sub-mastery scoring, relative review thresholds, and current `DecayQueue` behavior are slated to be replaced — read the redesign doc before changing those areas.
+> ⚠️ **Rounds Redesign: Phases 1-5 Live, Phase 6 Cleanup Pending**
+> The curriculum/Socratic side has been refactored from long-form interviews + 0-100 mastery scores to a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). The new system is the live entry point at `/learn/[conceptId]` and `/subject/[slug]`. Vocab SRS is untouched.
+> See **`docs/rounds-redesign.md`** for the full spec.
+>
+> **Legacy code still in the repo until Phase 6 cleanup:** `buildAssessPrompt`/`buildLearnPrompt`/`buildReviewPrompt` and their parsers; legacy `score`/`decayRate` columns on ConceptMastery + SubConceptMastery; `DecayQueue.tsx` and `MasteryBar.tsx` (no longer imported); `/review` page and `/api/review` (orphaned but reachable via `SubjectQueueButtons`); `ASSESS`/`LEARN`/`REVIEW` SessionMode values. Sections of this doc that describe these pieces describe the legacy state; the new round engine is the canonical path.
 
 ## What Is This?
 

@@ -2,10 +2,10 @@
 
 # MEMORY.dump
 
-> ⚠️ **Active Redesign In Progress: Rounds Model**
-> The curriculum/Socratic side is being refactored from long-form interviews + 0-100 mastery scores into a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). Vocab SRS is untouched.
-> Spec + build phases: **`docs/rounds-redesign.md`**. Read that before changing `prompts.ts`, `mastery.ts`, `claude.ts`, the chat API route, `DecayQueue`, or `SubConceptMastery` schema.
-> The "Sub-masteries" / "Chat flow lifecycle" / "Modifying the mastery model" / "Modifying AI behavior" sections below describe the **current** system and will be rewritten when the redesign lands.
+> ⚠️ **Rounds Redesign: Phases 1-5 Live, Phase 6 Cleanup Pending**
+> The curriculum/Socratic side has been refactored into a WaniKani-style **rounds model** — discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered), bounded 1-3 question rounds, binary advance/drop, capstone synthesis. Live at `/learn/[conceptId]` and `/subject/[slug]`. Vocab SRS is untouched.
+> Spec: **`docs/rounds-redesign.md`**. Before editing any AI behavior (`src/lib/prompts.ts`, `src/lib/levels.ts`), the round routes (`/api/round`, `/api/synthesis`, `/api/round-queue`), or the round UI components (`RoundView`, `SynthesisView`, `LessonGate`, `RoundQueue`), read the redesign doc.
+> **Legacy still in repo, slated for Phase 6 removal:** `buildAssessPrompt`/`buildLearnPrompt`/`buildReviewPrompt`, `parseMasteryTag`/`parseSubMasteryTags`, `score`/`decayRate` columns, `DecayQueue.tsx`, `MasteryBar.tsx`, `/review` page, `/api/review`, `ASSESS`/`LEARN`/`REVIEW` SessionMode values. Sections below that describe these pieces describe the legacy state.
 
 Read `ARCHITECTURE.md` first — it has everything you need to understand the system, key files, gotchas, and how things connect.
 
