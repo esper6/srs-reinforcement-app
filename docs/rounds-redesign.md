@@ -276,13 +276,21 @@ Phased so each chunk lands in a working state. **Tests + manual playtest after e
 
 **Approach note:** Phase 1 is **additive**. Legacy `score`/`decayRate`/`lastReviewedAt` columns kept on both `ConceptMastery` and `SubConceptMastery` so existing code (mastery.ts, chat route, DecayQueue, etc.) keeps building. Removed in Phase 6 cleanup.
 
-### Phase 2 — Round engine (backend)
-- [ ] `src/lib/levels.ts` — pure functions: `getInterval(level, stage)`, `advance(level, stage)`, `drop(level, stage)`, `nextDueAt(level, stage, now)`
-- [ ] `src/lib/prompts.ts` — `buildRoundPrompt`, `buildSynthesisPrompt`. Delete `buildAssessPrompt`/`buildLearnPrompt`/`buildReviewPrompt` (or stub them out for back-compat during build).
-- [ ] `src/lib/claude.ts` — new `parseRoundResult` / `parseSynthesisResult`. Strip handling.
-- [ ] `POST /api/round` — picks weakest overdue facet for a concept, opens session, streams prompt. Returns `roundResult` on completion.
-- [ ] `POST /api/synthesis` — opens synthesis session for a concept where all facets are at Expert stage 3.
-- [ ] `GET /api/round-queue?subject=slug` — returns concepts with their facet states for the decay queue UI.
+### Phase 2 — Round engine (backend) ✓
+- [x] `src/lib/levels.ts` — pure functions: `getInterval`, `advance`, `drop`, `nextDueAt`, `isSynthesisReady`, `SYNTHESIS_COOLDOWN_MS`
+- [x] `src/lib/prompts.ts` — `buildRoundPrompt`, `buildSynthesisPrompt` (legacy assess/learn/review kept until Phase 6 cleanup)
+- [x] `src/lib/claude.ts` — `parseRoundResult` / `parseSynthesisResult` + strip helpers (legacy parsers kept)
+- [x] `POST /api/round` — picks weakest overdue facet, streams round prompt, applies advance/drop on `<round_result>`
+- [x] `POST /api/synthesis` — eligibility check (all facets at Expert/3, not on cooldown, not Mastered), pass→Mastered, fail→1w cooldown (no facet drops)
+- [x] `GET /api/round-queue?subject=slug` — returns per-concept facet states + roundsDue + synthesisReady for the decay queue UI
+
+**Phase 2.0 (added during execution)** — facets contract on Concept:
+- [x] `Concept.facets String[]` column + migration
+- [x] `docs/curriculum-generator-prompt.md` requires Facets array matching `####` headings
+- [x] `/api/import-curriculum` validates the contract; refuses imports without it
+- [x] `/import` page mirrors the prompt + shows facet count in preview
+
+User action remaining before Phase 3 can be smoke-tested end-to-end: regenerate at least one curriculum (System Design recommended) using the updated prompt and re-import via `/import`. Existing curricula have empty `facets[]` and the round endpoints will refuse them with a clear error.
 
 ### Phase 3 — Round UI
 - [ ] New `RoundView` component replacing `ChatInterface` for ROUND/SYNTHESIS modes
