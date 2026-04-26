@@ -1,63 +1,78 @@
 # MEMORY.dump — Architecture Guide
 
-> ⚠️ **Rounds Redesign: Phases 1-5 Live, Phase 6 Cleanup Pending**
-> The curriculum/Socratic side has been refactored from long-form interviews + 0-100 mastery scores to a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). The new system is the live entry point at `/learn/[conceptId]` and `/subject/[slug]`. Vocab SRS is untouched.
-> See **`docs/rounds-redesign.md`** for the full spec.
+> **Rounds Redesign: Live**
+> The curriculum/Socratic side runs on a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). Bounded 1-3 question rounds, binary advance/drop, capstone synthesis. Live at `/learn/[conceptId]` and `/subject/[slug]`. Vocab SRS is untouched.
+> See **`docs/rounds-redesign.md`** for design rationale and history.
 >
-> **Legacy code still in the repo until Phase 6 cleanup:** `buildAssessPrompt`/`buildLearnPrompt`/`buildReviewPrompt` and their parsers; legacy `score`/`decayRate` columns on ConceptMastery + SubConceptMastery; `DecayQueue.tsx` and `MasteryBar.tsx` (no longer imported); `/review` page and `/api/review` (orphaned but reachable via `SubjectQueueButtons`); `ASSESS`/`LEARN`/`REVIEW` SessionMode values. Sections of this doc that describe these pieces describe the legacy state; the new round engine is the canonical path.
+> The legacy assessment-mode code (`buildAssessPrompt`/etc., `parseMasteryTag`/etc., `mastery.ts`, DecayQueue/MasteryBar/SubMasteryBreakdown components, `/review` page and route, score/decayRate DB columns) was removed in Phase 6 cleanup. `ASSESS`/`LEARN`/`REVIEW` enum values still sit in the `SessionMode` Postgres type — they're inert (no code references, no rows have them) and dropping them would require recreating the enum, not worth the migration churn.
 
 ## What Is This?
 
-An AI-powered spaced repetition app for learning. Users authenticate with Google, browse curricula, and learn through multi-turn Socratic interviews with Claude. Mastery is tracked per concept with 3-5 independent sub-masteries (facets) using a forgetting-curve decay model. Reviews are scoped per subject and triggered when any sub-mastery decays past its threshold.
+An AI-powered spaced repetition app for learning. Users authenticate with Google, browse curricula, and learn through bounded **rounds** with Claude — short 1-3 question interactions on one facet at a time, ending in a binary advance/drop verdict. Mastery is tracked per facet via discrete levels (Novice → Apprentice → Journeyman → Expert) with a 3-stage Expert staircase. After all facets reach Expert/3, a synthesis round can master the concept entirely. Vocab SRS is a separate, simpler system on the same dashboard.
 
 ## Core Concepts
 
-**Curriculum → Section → Concept** — Authored content hierarchy. Each concept has `lessonMarkdown` which is the source of truth the AI uses to generate questions. Curricula are imported via the `/import` page or seeded from `curricula-export.json`.
+**Curriculum → Section → Concept → Facets** — Authored content hierarchy. Each concept has `lessonMarkdown` (the source of truth Claude reads) and `facets: string[]` (3-5 entries matching `####` subheadings in the lesson character-for-character). Curricula are imported via the `/import` page or seeded from `curricula-export.json`. The Facets contract is enforced at import time.
 
-**ConceptMastery + SubConceptMastery** — Per-user per-concept. ConceptMastery tracks overall `score` (0-100), `decayRate` (float), `lastReviewedAt`. SubConceptMastery tracks the same per facet (3-5 per concept). Mastery is never stored as a decayed value — it's always computed on read via `score × e^(-decayRate × daysSince)`.
+**ConceptMastery + SubConceptMastery** — Per-user per-concept state.
+- `SubConceptMastery` (one row per facet): `level` (FacetLevel enum), `expertStage` (0 for non-Expert; 1-3 for the Expert staircase), `nextDueAt`, `lastReviewedAt`.
+- `ConceptMastery`: `mastered` (true after passing synthesis), `masteredAt`, `synthesisCooldownUntil`, `reviewCount`, `lastReviewedAt`.
 
-**Relative Review Threshold** — NOT a flat threshold. Strong facets (90+) trigger at ~60%, moderate (60-89) at ~55%, weak (30-59) at ~75%, very weak (<30) at ~85%. Weak knowledge comes up for review within hours. See `src/lib/mastery.ts:getReviewThreshold()`.
+**Round** — One facet, 1-3 questions, binary verdict. Server picks the weakest overdue facet (lowest level, then lowest Expert stage, then earliest `nextDueAt`). Claude opens with a concrete scenario drawn from that facet's `####` subsection, takes up to 3 student responses, then emits a `<round_result name="…" outcome="advance|drop" />` tag. The route applies the level transition via `src/lib/levels.ts` and updates `nextDueAt`.
 
-**Review Triggering** — A concept is due if ANY sub-mastery is past its threshold, not just the overall score. This check exists in three places that must stay in sync: `src/app/api/review/route.ts`, subject page reviewCount in `src/app/subject/[slug]/page.tsx`, and `src/components/DecayQueue.tsx`.
+**Synthesis** — Capstone round when every facet is at Expert stage 3 and no cooldown is active. Cross-facet integration test, single round, `pass` masters the concept; `fail` sets a 1-week cooldown with no facet drops.
 
-**ChatSession / ChatMessage** — Full conversation transcripts stored per interaction. Each session has a mode: ASSESS, LEARN, or REVIEW. After assessment, the session continues in Extra Credit mode (no scoring).
+**Intervals** — Novice 4h · Apprentice 1d · Journeyman 4d · Expert stage 1 = 2w · stage 2 = 1mo · stage 3 = 3mo · Mastered = never. Defined in `src/lib/levels.ts`.
 
-**Extra Credit Mode** — After mastery tags are detected, the chat enters a warm-palette open conversation mode. The prompt switches to `buildExtraCreditPrompt()`, the backend skips mastery saves, and the UI shifts to amber/brown tones. Suggested prompts for weak facets appear as clickable chips.
+**Round queue** — `/subject/[slug]` renders the per-concept pip chart driven by current facet states. Each concept shows N pips per facet (filled = level rank), magenta highlight on overdue, "Start ▶" / "Synthesis ▶" / "✓" action depending on state. Driven by inline Prisma query mirroring `/api/round-queue` (which exists for client consumers).
 
-**AI Integration** — Claude API with streaming SSE. The AI generates all questions dynamically from lesson markdown. Mastery scores are embedded in responses as `<mastery>` and `<sub_mastery>` tags, parsed both client-side (for UI) and server-side (for DB persistence), then stripped from display.
+**Extra Credit** — Open chat after a round, no scoring. Triggered by the round result screen; hits `/api/chat` (the only path that route still serves). Warm amber/brown palette to visually distinguish from the test surface.
+
+**AI Integration** — Multi-provider LLM with streaming SSE (Claude via the relay; Anthropic/OpenAI/Google with API keys). Round/synthesis verdicts are emitted as XML-shaped tags (`<round_result>`, `<synthesis_result>`) parsed in `src/lib/claude.ts`. We use tags rather than tool use because the Claude relay wraps the CLI, not the API — see `memory/project_no_api_access.md`.
 
 ## Key Files
 
 ### Must-read to understand the system:
-- `src/lib/mastery.ts` — Decay formula, relative threshold calculation
-- `src/lib/prompts.ts` — All AI system prompts (assess, learn, review, extra credit). Scoring rules, facet rotation pacing, wrap-up instructions.
-- `src/lib/claude.ts` — Claude API client, streaming, mastery/sub-mastery tag parsing
-- `prisma/schema.prisma` — Complete data model including SubConceptMastery
-- `src/app/api/chat/route.ts` — Core API: conversation → Claude → mastery persistence
+- `src/lib/levels.ts` — Pure level/interval/advancement logic. `advance()`, `drop()`, `getInterval()`, `nextDueAt()`, `isSynthesisReady()`. Single source of truth for the staircase.
+- `src/lib/prompts.ts` — Round and synthesis prompt builders + Extra Credit prompt. Contains the `LEVEL_BARS` rubric Claude evaluates against.
+- `src/lib/claude.ts` — `parseRoundResult` / `parseSynthesisResult` and their strip helpers. Strict regex on outcome union.
+- `prisma/schema.prisma` — Data model. Note: `facets: String[]` on Concept; `level`/`expertStage`/`nextDueAt` on SubConceptMastery; `mastered`/`synthesisCooldownUntil` on ConceptMastery.
+- `src/app/api/round/route.ts` — The meatiest backend route. Picks weakest overdue facet, builds prompt with up to 5 prior openers for variety, streams Claude, applies state transition.
+- `src/app/api/synthesis/route.ts` — Capstone round; eligibility + cooldown handling.
+- `src/app/learn/[conceptId]/page.tsx` — State machine over loading → lesson_gate → round → result → synthesis_gate → synthesis → mastered.
 
 ### Pages:
 - `src/app/page.tsx` — Landing / sign-in
-- `src/app/dashboard/page.tsx` — Subject cards grid (server component)
-- `src/app/subject/[slug]/page.tsx` — Subject detail: Lessons/Reviews buttons, sub-mastery-aware decay queue, concept list (server component)
-- `src/app/learn/[conceptId]/page.tsx` — Assessment chat with inline mastery graph + extra credit mode
+- `src/app/dashboard/page.tsx` — Subject cards grid showing "{N} / {M} mastered" per subject
+- `src/app/subject/[slug]/page.tsx` — Subject detail with `RoundQueue` pip chart + concept list
+- `src/app/learn/[conceptId]/page.tsx` — Per-concept entry point; orchestrates LessonGate / RoundView / RoundResultView / SynthesisView / SynthesisResultView / ChatInterface (extra credit)
 - `src/app/learn/queue/[slug]/page.tsx` — Chains through unstarted concepts in a subject
-- `src/app/review/page.tsx` — Interleaved review queue, `?subject=slug` filter
 - `src/app/import/page.tsx` — Paste-JSON curriculum import with validation and preview
+- `src/app/drill/[slug]/page.tsx` — Vocab SRS drills (separate system, untouched by rounds redesign)
 
 ### Components:
-- `src/components/ChatInterface.tsx` — Multi-turn streaming chat UI with extra credit mode, inline mastery graph, suggested prompts, show-lesson expandable
-- `src/components/DecayQueue.tsx` — Assessed concepts with countdown timers, sub-mastery-aware due status
-- `src/components/SubMasteryBreakdown.tsx` — Per-facet bar chart after assessment
-- `src/components/MasteryGraph.tsx` — Animated bar graph of subject mastery
-- `src/hooks/useChat.ts` — Chat state, SSE streaming, real-time mastery tag parsing, extra credit detection
+- `src/components/RoundView.tsx` — Live round UI with Continue button when resolved
+- `src/components/RoundResultView.tsx` — Post-round screen with Next Round / Extra Credit / Done
+- `src/components/SynthesisView.tsx` — Capstone UI, magenta accent
+- `src/components/SynthesisResultView.tsx` — Mastered celebration on pass; cooldown screen on fail
+- `src/components/LessonGate.tsx` — First-encounter lesson view before round 1
+- `src/components/RoundQueue.tsx` — Subject-page pip chart
+- `src/components/ChatInterface.tsx` — Extra-credit-only chat surface
+- `src/components/MessageBubble.tsx` — Shared chat bubble for round/synthesis/extra credit views
+
+### Hooks:
+- `src/hooks/useRound.ts` — SSE streaming for `/api/round`, exposes `roundResult` state for the Continue-button transition
+- `src/hooks/useSynthesis.ts` — Same shape, `/api/synthesis`
+- `src/hooks/useChat.ts` — Extra-credit transport against `/api/chat`
 
 ### API Routes:
-- `POST /api/chat` — Core. Takes `conceptId`, `mode`, `sessionId`, `userMessage`, `extraCredit`. Streams SSE.
-- `GET /api/review?subject=slug` — Review queue with sub-mastery-aware triggering
-- `GET /api/assess-queue?subject=slug` — Unstarted concepts for a subject
-- `GET /api/subject-masteries?subject=slug` — All mastery + sub-mastery scores
-- `GET /api/concept/[conceptId]` — Concept info with section/curriculum
-- `POST /api/import-curriculum` — Validates and imports curriculum JSON (rejects if slug has existing progress)
+- `POST /api/round` — Core round endpoint; auto-picks facet, streams, applies advance/drop
+- `POST /api/synthesis` — Capstone; eligibility check + pass/fail handling
+- `GET /api/round-queue?subject=slug` — Read feed for the round queue UI
+- `GET /api/concept/[conceptId]` — Concept info + the user's mastery state
+- `POST /api/chat` — Extra-credit-only chat (no scoring)
+- `POST /api/import-curriculum` — Validates Facets contract; rejects malformed imports
+- `GET /api/assess-queue?subject=slug` — Unstarted concepts for `/learn/queue/[slug]`
 
 ### Auth & Routing:
 - `src/proxy.ts` — Route protection via session cookie check (NOT middleware.ts, which is deprecated in Next.js 16)
@@ -113,12 +128,13 @@ Environment routing is plain `DATABASE_URL` pointing at the right database — n
 1. **Prisma 7 + Postgres** — Uses `@prisma/adapter-pg` with `pg.Pool` for transaction support. See `src/lib/db.ts`.
 2. **Prisma client generation** — `postinstall` runs `prisma generate`. Always annotate Prisma callback params explicitly to avoid implicit-any TypeScript errors during build.
 3. **Auth uses proxy, not middleware** — `src/proxy.ts` checks session cookies. `middleware.ts` is deprecated in Next.js 16. `getToken()` won't work (database sessions, not JWT).
-4. **Scoring strictness is in prompts** — Vague answers score 20-35%, "I don't know" scores 0-10%, parroting corrections gets 0. See `SCORING_RULES` in `src/lib/prompts.ts`.
-5. **The `[START ASSESSMENT]` trigger** — First message is automated, not from the student. Prompts account for this.
-6. **Decay is computed, never stored** — `calculateCurrentMastery()` always computes from raw score + decayRate + timestamp.
-7. **Sub-mastery review check in 3 places** — Review API, subject page, DecayQueue. Must stay in sync.
-8. **Import refuses to overwrite progress** — Returns 409 if slug exists with mastery data.
-9. **JSON schema is PascalCase** — Seed and import expect `Name`, `Slug`, `LessonMarkdown`, etc.
+4. **The bar criteria are in prompts** — `LEVEL_BARS` in `src/lib/prompts.ts` describes what each level transition requires. Tuning Claude's verdicts means editing that, not code.
+5. **The `[START ROUND]` / `[START SYNTHESIS]` triggers** — First message in each session is automated, not from the student. Prompts and message-counting logic account for this.
+6. **Facet contract** — `Concept.facets[]` must match the `####` subheadings in `lessonMarkdown` character-for-character, in order. Enforced by `/api/import-curriculum`. The round prompt anchors scenarios to the facet's `####` subsection.
+7. **Round-result tag stripping** — Output text is shown to the user with `<round_result>` and `<synthesis_result>` tags stripped via regex. The full text (including tags) is what we parse server-side.
+8. **No tool use available** — The Claude relay wraps the CLI, not the API, so structured outputs come from regex over XML-shaped tags. See `memory/project_no_api_access.md`.
+9. **Import refuses to overwrite progress** — Returns 409 if slug exists with mastery data.
+10. **JSON schema is PascalCase** — Seed and import expect `Name`, `Slug`, `LessonMarkdown`, `Facets`, etc.
 
 ## Dev Setup
 ```

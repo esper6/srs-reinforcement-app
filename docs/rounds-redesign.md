@@ -330,14 +330,30 @@ User action remaining before Phase 3 can be smoke-tested end-to-end: regenerate 
 - [x] `useChat` and `ChatInterface` accept `initialExtraCredit` to start in extra-credit mode without an assessment trigger
 - [x] Page `extra_credit` state replaces the placeholder alert with a real chat surface
 
-### Phase 6 — Cleanup (pending — defer until smoke-test validates Phases 3-5)
-- [ ] Remove `buildAssessPrompt` / `buildLearnPrompt` / `buildReviewPrompt` from `src/lib/prompts.ts` and the constants they reference (`SCORING_RULES`, `WRAPUP_FORMAT`, `SUB_MASTERY_FORMAT`)
-- [ ] Remove `parseMasteryTag` / `parseSubMasteryTags` and their strip helpers from `src/lib/claude.ts`
-- [ ] Drop `score` / `decayRate` columns from `ConceptMastery` and `SubConceptMastery` (migration); remove `src/lib/mastery.ts` if nothing else needs it
-- [ ] Remove `ASSESS` / `LEARN` / `REVIEW` from `SessionMode` enum (migration); update `/api/chat` to be Extra-Credit-only
-- [ ] Delete `DecayQueue.tsx`, `MasteryBar.tsx`, `SubMasteryBreakdown.tsx` if no remaining importers
-- [ ] Delete `/review` page and `/api/review` route; remove the Reviews button on `SubjectQueueButtons` (or repurpose to "Rounds")
-- [ ] Update `ARCHITECTURE.md` and `CLAUDE.md` to drop the "Phases 1-5 live, Phase 6 pending" callout and describe the new system as canonical without legacy callouts
+### Phase 6 — Cleanup ✓
+Shipped in three sequential commits after the smoke test validated Phases 3-5.
+
+**6a — Strip legacy backend:**
+- [x] Removed `buildAssessPrompt` / `buildLearnPrompt` / `buildReviewPrompt` and supporting constants (`SCORING_RULES`, `WRAPUP_FORMAT`, `SUB_MASTERY_FORMAT`, `ANTI_INJECTION`) from `src/lib/prompts.ts`
+- [x] Removed `parseMasteryTag` / `parseSubMasteryTags` and strip helpers from `src/lib/claude.ts`
+- [x] Deleted `src/lib/mastery.ts` (decay-curve math, no callers in new model)
+- [x] Simplified `/api/chat` to extra-credit-only — no more mode switching, no mastery tag parsing in `collectAndSave`
+- [x] Simplified `useChat` and `ChatInterface` accordingly (dropped mode prop, mastery state, assessment-trigger autofire)
+- [x] Replaced `SubjectCard.averageMastery` (decay-driven) with `masteredCount / conceptCount` (level-driven)
+
+**6b — Strip legacy UI:**
+- [x] Deleted `/review` page and `/api/review` route
+- [x] Deleted `DecayQueue.tsx`, `MasteryBar.tsx`, `SubMasteryBreakdown.tsx`, `ReviewQueueBanner.tsx`
+- [x] Removed `ReviewQueueItem` and `SubMasteryData` types from `src/lib/types.ts`
+- [x] Removed the Reviews button from `SubjectQueueButtons` (round queue surfaces those directly)
+
+**6c — Schema + docs:**
+- [x] Migration `20260426160000_phase_6_drop_legacy_columns` drops `score` and `decayRate` columns from both `ConceptMastery` and `SubConceptMastery`
+- [x] Prisma schema cleaned up to match
+- [x] `ASSESS` / `LEARN` / `REVIEW` SessionMode values intentionally left in place — Postgres can't drop enum values without recreating the type, and they're inert (no code references, no rows have them)
+- [x] `ARCHITECTURE.md` and `CLAUDE.md` rewritten to describe the rounds engine as canonical; legacy callouts removed; gotchas updated
+
+**Net deletion across Phase 6:** ~1100+ lines removed.
 
 ## Open questions deferred
 
