@@ -134,6 +134,24 @@ For each facet section, cover **four levels of depth**:
 
 For each concept, ask: "Could a tutor have a meaningful 10-minute conversation assessing this?" If the answer is no (too narrow or too broad), rescope it.
 
+## Agentic Workflow (Claude Code, Cursor, etc.)
+
+If you have file-writing tools available, **use the chunked workflow** below instead of generating the whole curriculum in one response. Much faster for the user (visible progress, parallelizable) and salvageable if interrupted.
+
+### Step 1 — Outline file
+Write the outline to \`curriculum.json\` first. The outline includes EVERYTHING except \`LessonMarkdown\`. For each concept, leave \`LessonMarkdown\` as an empty string \`""\` and fill all other fields (Title, Description, Facets, Order, Prompts, Vocab). This is small (a few KB). Tell the user "outline written, generating lessons now" so they see progress.
+
+### Step 2 — Fill lessons one concept at a time
+For each concept in the outline, generate the \`LessonMarkdown\` (800-1500 words, with \`####\` subheadings exactly matching that concept's \`Facets\` array, in order). Update \`curriculum.json\` in place by reading it, replacing that concept's \`LessonMarkdown\`, and writing it back. Print a one-line progress note after each concept. If you can parallelize, do — concepts are independent.
+
+### Step 3 — Validate
+After all lessons are filled, verify the JSON parses cleanly, every \`Facets\` array length is 3-5 with entries matching the \`####\` subheading text character-for-character, and no \`LessonMarkdown\` is still empty. Tell the user \`curriculum.json is ready — paste it into the /import page\` and stop.
+
+### When NOT to use chunked workflow
+- The user explicitly said one-shot or one-response mode
+- The curriculum is 1-2 concepts total (overhead with no benefit)
+- You have no file-writing tools available
+
 ## Now generate the curriculum
 
 Generate the full curriculum JSON for the topic above. Remember:
@@ -142,7 +160,8 @@ Generate the full curriculum JSON for the topic above. Remember:
 - Every concept's \`Facets\` array must list those subheading titles exactly, in order
 - 5-10 vocab terms per concept with concise definitions
 - Narrative style, not bullet lists
-- Output ONLY the JSON, nothing else`;
+- If you have file tools, use the **Agentic Workflow** above
+- If not (web LLM mode), output ONLY the JSON, nothing else`;
 
 export default function ImportPage() {
   const router = useRouter();

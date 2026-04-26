@@ -2,6 +2,14 @@
 
 Copy everything below into Claude.ai, ChatGPT, or any LLM. Fill out the questionnaire at the top, then send. Paste the JSON output into MEMORY.dump's Import Curriculum page.
 
+## Two ways to use this prompt
+
+**Web LLM (Claude.ai, ChatGPT, etc.) — one-shot mode**
+Paste the whole prompt, fill in the questionnaire, send. The LLM returns the full curriculum JSON in one response. Fine for small curricula (1-2 concepts in 1 section). For full curricula (4-6 sections × 5 concepts), expect 20-40 minutes of wall-clock time — that's ~25-50K words of structured output, near the upper limit of single-response generation. There's no progress indicator; just wait.
+
+**Agentic LLM (Claude Code, Cursor, etc.) — chunked mode**
+The "Agentic Workflow" instruction block below tells the agent to write the outline to a file first, then iterate over concepts, generating each lesson and merging into the outline. You see incremental progress (each concept appearing as a file write), the work is salvageable if interrupted, and individual concept generations can be parallelized. **Strongly recommended for any curriculum of more than ~5 concepts.**
+
 ---
 
 # FILL THIS OUT
@@ -187,6 +195,62 @@ The `Facets` array for this concept would be exactly:
 ```
 Note how the entries match the `####` subheading text character-for-character.
 
+## Agentic Workflow (Claude Code, Cursor, etc.)
+
+If you have file-writing tools available, **use the chunked workflow** below instead of generating the whole curriculum in one response. It's much faster for the user (visible progress, parallelizable) and salvageable if interrupted.
+
+### Step 1 — Outline file
+Write the outline to `curriculum.json` first. The outline includes EVERYTHING except `LessonMarkdown`. For each concept, leave `LessonMarkdown` as an empty string `""` and fill all other fields (Title, Description, Facets, Order, Prompts, Vocab):
+
+```json
+{
+  "Name": "...",
+  "Slug": "...",
+  "Description": "...",
+  "Language": "",
+  "IconClass": "",
+  "Order": 1,
+  "Sections": [
+    {
+      "Name": "...",
+      "Concepts": [
+        {
+          "Title": "...",
+          "Description": "...",
+          "LessonMarkdown": "",
+          "Facets": ["First Facet", "Second Facet", "Third Facet"],
+          "Order": 1,
+          "Prompts": [],
+          "Vocab": [{"Term": "...", "Definition": "..."}]
+        }
+      ]
+    }
+  ]
+}
+```
+
+This is small (a few KB). Tell the user "outline written, generating lessons now" so they see progress.
+
+### Step 2 — Fill lessons one concept at a time
+For each concept in the outline, generate the `LessonMarkdown` (800-1500 words, with `####` subheadings exactly matching that concept's `Facets` array, in order). Update `curriculum.json` in place by reading it, replacing that concept's `LessonMarkdown`, and writing it back.
+
+After each concept is filled, optionally print a one-line progress note: `✓ Wrote lesson for "{Title}" ({wordCount} words)`. This makes the long generation visible to the user.
+
+If you can run multiple lesson generations in parallel (e.g., spawning sub-tasks), do — concepts are independent. Otherwise iterate sequentially.
+
+### Step 3 — Validate
+After all lessons are filled, read `curriculum.json` one more time and verify:
+- Every concept's `Facets` array length is 3-5 and entries match the `####` subheading text in the LessonMarkdown character-for-character
+- No `LessonMarkdown` is still empty
+- JSON parses cleanly
+
+Tell the user `curriculum.json is ready — paste it into the /import page` and stop.
+
+### When NOT to use chunked workflow
+- The user explicitly said one-shot or one-response mode
+- The curriculum is 1-2 concepts total (chunking adds overhead with no benefit)
+- You have no file-writing tools available
+
 ## Now generate the curriculum
 
 Generate the full curriculum JSON for the topic above. Remember:
@@ -195,4 +259,5 @@ Generate the full curriculum JSON for the topic above. Remember:
 - Every concept's `Facets` array must list those subheading titles exactly, in order
 - 5-10 vocab terms per concept with concise definitions
 - Narrative style, not bullet lists
-- Output ONLY the JSON, nothing else
+- If you have file tools, use the **Agentic Workflow** above
+- If not (web LLM mode), output ONLY the JSON, nothing else
