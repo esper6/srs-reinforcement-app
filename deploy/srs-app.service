@@ -1,0 +1,19 @@
+[Unit]
+Description=SRS Reinforcement App (Next.js)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/srs-app
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=srs-app
+
+[Install]
+WantedBy=multi-user.target
