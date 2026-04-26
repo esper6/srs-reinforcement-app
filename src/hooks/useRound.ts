@@ -11,9 +11,6 @@ export interface RoundResult {
 
 interface UseRoundOptions {
   conceptId: string;
-  // Fires once per round when <round_result> arrives. Component uses this to
-  // transition to the post-round result screen.
-  onRoundResolve?: (result: RoundResult) => void;
 }
 
 // Strip the round/synthesis tags from the streaming display text. Tags are
@@ -26,7 +23,7 @@ function stripTagsForDisplay(text: string): string {
   return text.replace(ROUND_TAG_RX, "").replace(SYNTHESIS_TAG_RX, "").trim();
 }
 
-export function useRound({ conceptId, onRoundResolve }: UseRoundOptions) {
+export function useRound({ conceptId }: UseRoundOptions) {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [facetName, setFacetName] = useState<string | null>(null);
@@ -104,17 +101,17 @@ export function useRound({ conceptId, onRoundResolve }: UseRoundOptions) {
           }
         }
 
-        // After stream ends, parse the round_result tag (if Claude resolved this turn)
+        // After stream ends, parse the round_result tag (if Claude resolved this turn).
+        // We set state but do NOT auto-transition — the component shows a Continue
+        // button so the user can read Claude's final message before moving on.
         const match = fullText.match(
           /<round_result\s+name="([^"]+)"\s+outcome="(advance|drop)"\s*\/>/
         );
         if (match) {
-          const result: RoundResult = {
+          setRoundResult({
             name: match[1],
             outcome: match[2] as RoundOutcome,
-          };
-          setRoundResult(result);
-          onRoundResolve?.(result);
+          });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Something went wrong";
@@ -131,7 +128,7 @@ export function useRound({ conceptId, onRoundResolve }: UseRoundOptions) {
         setIsLoading(false);
       }
     },
-    [conceptId, onRoundResolve]
+    [conceptId]
   );
 
   const reset = useCallback(() => {

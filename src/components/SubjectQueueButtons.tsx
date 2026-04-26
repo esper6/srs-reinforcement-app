@@ -3,7 +3,6 @@ import Link from "next/link";
 interface SubjectQueueButtonsProps {
   slug: string;
   unstartedCount: number;
-  reviewCount: number;
   vocabNewCount: number;
   vocabDueCount: number;
 }
@@ -11,11 +10,12 @@ interface SubjectQueueButtonsProps {
 export default function SubjectQueueButtons({
   slug,
   unstartedCount,
-  reviewCount,
   vocabNewCount,
   vocabDueCount,
 }: SubjectQueueButtonsProps) {
-  const nothingDue = unstartedCount === 0 && reviewCount === 0 && vocabNewCount === 0 && vocabDueCount === 0;
+  // Note: the rounds-redesign retired the per-subject "Reviews" button — round
+  // reviews are surfaced directly in the per-concept Round Queue below.
+  const nothingDue = unstartedCount === 0 && vocabNewCount === 0 && vocabDueCount === 0;
 
   return (
     <div className="flex flex-wrap gap-3 mb-8">
@@ -27,17 +27,6 @@ export default function SubjectQueueButtons({
           <span>Lessons</span>
           <span className="bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] px-2 py-0.5 rounded text-xs">
             {unstartedCount}
-          </span>
-        </Link>
-      )}
-      {reviewCount > 0 && (
-        <Link
-          href={`/review?subject=${slug}`}
-          className="btn-neon-magenta px-5 py-2.5 rounded-lg text-sm font-medium font-[family-name:var(--font-share-tech-mono)] inline-flex items-center gap-2"
-        >
-          <span>Reviews</span>
-          <span className="bg-[var(--neon-magenta)]/20 text-[var(--neon-magenta)] px-2 py-0.5 rounded text-xs">
-            {reviewCount}
           </span>
         </Link>
       )}

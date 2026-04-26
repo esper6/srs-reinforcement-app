@@ -129,7 +129,6 @@ export default async function SubjectPage({
       <SubjectQueueButtons
         slug={slug}
         unstartedCount={unstartedCount}
-        reviewCount={totalRoundsDue}
         vocabNewCount={vocabNewCount}
         vocabDueCount={vocabDueCount}
       />
