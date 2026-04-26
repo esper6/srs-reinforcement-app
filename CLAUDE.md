@@ -2,6 +2,11 @@
 
 # MEMORY.dump
 
+> ⚠️ **Active Redesign In Progress: Rounds Model**
+> The curriculum/Socratic side is being refactored from long-form interviews + 0-100 mastery scores into a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). Vocab SRS is untouched.
+> Spec + build phases: **`docs/rounds-redesign.md`**. Read that before changing `prompts.ts`, `mastery.ts`, `claude.ts`, the chat API route, `DecayQueue`, or `SubConceptMastery` schema.
+> The "Sub-masteries" / "Chat flow lifecycle" / "Modifying the mastery model" / "Modifying AI behavior" sections below describe the **current** system and will be rewritten when the redesign lands.
+
 Read `ARCHITECTURE.md` first — it has everything you need to understand the system, key files, gotchas, and how things connect.
 
 ## Quick Orientation
@@ -21,20 +26,17 @@ npm run build              # Production build (always test before push)
 ```
 
 ## Deployment
-- **Hosted on Vercel** at memorydump.app (custom domain via Cloudflare DNS)
-- **Git workflow**: code on `develop` → push for Vercel preview → merge to `master` for production
-- **Neon integration**: Production deploys use `production` DB branch, preview deploys use `development` branch
-- **Prisma on Vercel**: `postinstall` hook runs `prisma generate` — without this, the build fails because TypeScript can't find the generated client types
-- **Vercel type strictness**: Even if `tsc` passes locally, `next build` on Vercel may fail on implicit `any` in Prisma query callbacks. Always annotate callback params on Prisma results (use local type aliases like `type Section = (typeof result.sections)[number]`)
+- **Self-hosted on Azure VM** `greg-w-vm` at `20.242.97.67` (East US 2, D2ps_v6 ARM64, Ubuntu 24.04). Domain memorydump.app via Cloudflare DNS pointing at the VM. Funded by VS Enterprise $150/mo credits.
+- **Everything lives on the VM**: Next.js app, Postgres, Claude Relay, Nginx (reverse proxy + TLS).
+- **Two databases on the VM Postgres**: `srsapp` (production), `srsapp-dev` (development). Routing is plain `DATABASE_URL` per environment — no Neon branches anymore.
+- **Git workflow**: code on `develop` → deploy to dev → merge to `master` for production.
+- **Prisma client generation**: `postinstall` hook runs `prisma generate`. Always annotate Prisma callback params explicitly (use local type aliases like `type Section = (typeof result.sections)[number]`) to avoid implicit-any errors at build time.
+- **SSH**: `ssh -i ~/.ssh/greg-w-vm_key.pem azureuser@20.242.97.67`
 
-### Claude Relay (Azure VM)
-- **Azure VM** `greg-w-vm` at `20.242.97.67` (East US 2, D2ps_v6 ARM64, Ubuntu 24.04)
-- **Funded by** VS Enterprise $150/mo credits (subscription `63d1091c`)
-- **Purpose**: Runs Claude Code CLI relay so the app can use enterprise Claude license instead of API keys
-- **Relay server**: `claude-relay/` directory — Express app, deployed via systemd on the VM
-- **Vercel env vars**: `CLAUDE_RELAY_URL` and `CLAUDE_RELAY_SECRET` point to the VM
-- **SSH access**: `ssh -i ~/.ssh/greg-w-vm_key.pem azureuser@20.242.97.67`
-- **Future plans**: Consolidate Next.js app and Postgres onto this VM (move off Vercel + Neon)
+### Claude Relay
+- **Purpose**: Runs Claude Code CLI relay so the app can use enterprise Claude license instead of API keys.
+- **Relay server**: `claude-relay/` directory — Express app, deployed via systemd on the VM.
+- **App env vars**: `CLAUDE_RELAY_URL`, `CLAUDE_RELAY_SECRET` (the app calls localhost-or-internal-URL to reach the relay since they share the VM).
 
 ## Architecture Patterns
 

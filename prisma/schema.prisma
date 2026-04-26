@@ -148,10 +148,15 @@ model ConceptMastery {
   id             String            @id @default(cuid())
   userId         String
   conceptId      String
+  // Legacy 0-100 scoring (kept for back-compat during rounds-redesign Phases 2-5; removed in Phase 6).
   score          Float             @default(0)
   decayRate      Float             @default(0.1)
   lastReviewedAt DateTime          @default(now())
   reviewCount    Int               @default(0)
+  // Rounds redesign: concept-level Mastered badge + synthesis cooldown.
+  mastered               Boolean   @default(false)
+  masteredAt             DateTime?
+  synthesisCooldownUntil DateTime?
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   concept        Concept           @relation(fields: [conceptId], references: [id], onDelete: Cascade)
   subMasteries   SubConceptMastery[]
@@ -164,13 +169,26 @@ model SubConceptMastery {
   id               String         @id @default(cuid())
   conceptMasteryId String
   name             String
+  // Legacy 0-100 scoring (kept for back-compat during rounds-redesign Phases 2-5; removed in Phase 6).
   score            Float          @default(0)
   decayRate        Float          @default(0.1)
   lastReviewedAt   DateTime       @default(now())
+  // Rounds redesign: discrete level + Expert staircase + next-due timestamp.
+  level            FacetLevel     @default(NOVICE)
+  expertStage      Int            @default(0) // 0 = not yet at Expert; 1-3 = staircase position
+  nextDueAt        DateTime       @default(now())
   conceptMastery   ConceptMastery @relation(fields: [conceptMasteryId], references: [id], onDelete: Cascade)
 
   @@unique([conceptMasteryId, name])
   @@index([conceptMasteryId])
+  @@index([nextDueAt])
+}
+
+enum FacetLevel {
+  NOVICE
+  APPRENTICE
+  JOURNEYMAN
+  EXPERT
 }
 
 // ─── Conversation History ───
@@ -201,7 +219,12 @@ model ChatMessage {
 }
 
 enum SessionMode {
+  // Legacy modes — retained for existing data and current code; replaced by ROUND/SYNTHESIS/EXTRA_CREDIT in the rounds redesign.
   ASSESS
   LEARN
   REVIEW
+  // Rounds redesign:
+  ROUND
+  SYNTHESIS
+  EXTRA_CREDIT
 }

@@ -46,5 +46,9 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# docs
-/docs
+# docs (private by default; allowlist specific shared docs below)
+# NOTE: ignoring /docs/* (contents) not /docs (directory) so git still traverses
+# and the un-ignore patterns can match. Subdirs like docs/FSAAA/ stay ignored.
+/docs/*
+!/docs/rounds-redesign.md
+!/docs/curriculum-generator-prompt.md

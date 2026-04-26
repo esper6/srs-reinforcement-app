@@ -1,5 +1,10 @@
 # MEMORY.dump — Architecture Guide
 
+> ⚠️ **Active Redesign In Progress: Rounds Model**
+> The curriculum/Socratic side is being refactored from long-form interviews + 0-100 mastery scores to a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). Vocab SRS is untouched.
+> See **`docs/rounds-redesign.md`** for the full spec, build phases, and migration plan.
+> Sections of this doc that describe the long-form interview flow, 0-100 sub-mastery scoring, relative review thresholds, and current `DecayQueue` behavior are slated to be replaced — read the redesign doc before changing those areas.
+
 ## What Is This?
 
 An AI-powered spaced repetition app for learning. Users authenticate with Google, browse curricula, and learn through multi-turn Socratic interviews with Claude. Mastery is tracked per concept with 3-5 independent sub-masteries (facets) using a forgetting-curve decay model. Reviews are scoped per subject and triggered when any sub-mastery decays past its threshold.
@@ -59,14 +64,14 @@ An AI-powered spaced repetition app for learning. Users authenticate with Google
 - `src/lib/db.ts` — Prisma client with pg.Pool adapter
 
 ## Tech Stack
-- Next.js 16 (App Router) on Vercel at memorydump.app
-- Neon Postgres via `@prisma/adapter-pg` (requires `pg.Pool` for transaction support)
-- Prisma 7 with `postinstall` hook for Vercel builds
+- Next.js 16 (App Router), self-hosted on the Azure VM at memorydump.app
+- Self-hosted Postgres on the same VM via `@prisma/adapter-pg` (requires `pg.Pool` for transaction support)
+- Prisma 7 with `postinstall` hook (still useful — generates the client on `npm install`)
 - NextAuth v4 with Google provider + PrismaAdapter (database sessions, NOT JWT)
 - Multi-provider LLM: Anthropic, OpenAI, Google, and Claude Relay (via Claude Code CLI)
 - Tailwind CSS v4 with neo-retro theme (CSS vars in `globals.css`)
-- Cloudflare DNS, Neon-Vercel integration for per-environment DB branches
-- **Azure VM** (`greg-w-vm`, East US 2, D2ps_v6 ARM64) — hosts the Claude Relay server, funded by VS Enterprise $150/mo credits
+- Cloudflare DNS pointing at the VM
+- **Azure VM** (`greg-w-vm`, East US 2, D2ps_v6 ARM64) — hosts everything: Next.js app, Postgres, Claude Relay. Funded by VS Enterprise $150/mo credits.
 
 ## Claude Relay
 
@@ -84,24 +89,28 @@ Vercel (Next.js) → HTTPS → Azure VM (relay) → claude --print → Claude (e
 - `claude-relay/src/index.ts` — Express server, auth, conversation formatting, CLI spawning
 - `src/lib/llm.ts` — `CLAUDE_RELAY` provider (streamRelay, singleRelay functions)
 
-**Env vars on Vercel:** `CLAUDE_RELAY_URL`, `CLAUDE_RELAY_SECRET`
-**Env vars on VM:** `RELAY_SECRET`, `PORT`
+**App env vars:** `CLAUDE_RELAY_URL`, `CLAUDE_RELAY_SECRET`
+**Relay env vars:** `RELAY_SECRET`, `PORT`
 
 Users select "Claude Relay" in Settings → API Keys. No API key needed — the relay uses the CLI's OAuth auth.
 
-## Azure VM (greg-w-vm) — Future Migration Target
+## Azure VM (greg-w-vm) — Live Hosting
 
-The Azure VM (D2ps_v6: 2 ARM64 vCPUs, 8GB RAM, Ubuntu 24.04) is funded by VS Enterprise monthly credits ($150/mo). Currently hosts the Claude Relay. Planned to eventually consolidate:
+The Azure VM (D2ps_v6: 2 ARM64 vCPUs, 8GB RAM, Ubuntu 24.04, East US 2) is funded by VS Enterprise monthly credits ($150/mo). It hosts **everything**:
 
-- **Claude Relay** (now) — `claude-relay/` Express server via systemd
-- **Next.js app** (future) — Move off Vercel, run directly on the VM
-- **Postgres** (future) — Move off Neon, run locally or use Azure Database for PostgreSQL
-- **Nginx** — Reverse proxy + TLS termination for all services
+- **Next.js app** — running directly on the VM (was Vercel)
+- **Postgres** — self-hosted on the VM with two databases:
+  - `srsapp` — production
+  - `srsapp-dev` — development
+- **Claude Relay** — `claude-relay/` Express server via systemd
+- **Nginx** — reverse proxy + TLS termination for all services
+
+Environment routing is plain `DATABASE_URL` pointing at the right database — no more Neon-Vercel branch integration.
 
 ## Important Gotchas
 
-1. **Prisma 7 + Neon** — Must use `@prisma/adapter-pg` with `pg.Pool`, NOT `PrismaNeonHttp`. See `src/lib/db.ts`.
-2. **Prisma on Vercel** — `postinstall` runs `prisma generate`. Even so, always annotate Prisma callback params explicitly — Vercel's TS compiler may not infer them.
+1. **Prisma 7 + Postgres** — Uses `@prisma/adapter-pg` with `pg.Pool` for transaction support. See `src/lib/db.ts`.
+2. **Prisma client generation** — `postinstall` runs `prisma generate`. Always annotate Prisma callback params explicitly to avoid implicit-any TypeScript errors during build.
 3. **Auth uses proxy, not middleware** — `src/proxy.ts` checks session cookies. `middleware.ts` is deprecated in Next.js 16. `getToken()` won't work (database sessions, not JWT).
 4. **Scoring strictness is in prompts** — Vague answers score 20-35%, "I don't know" scores 0-10%, parroting corrections gets 0. See `SCORING_RULES` in `src/lib/prompts.ts`.
 5. **The `[START ASSESSMENT]` trigger** — First message is automated, not from the student. Prompts account for this.
