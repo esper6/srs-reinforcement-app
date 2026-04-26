@@ -93,7 +93,6 @@ export default async function SubjectPage({
   });
 
   const totalRoundsDue = roundQueueConcepts.reduce((sum, c) => sum + c.roundsDue, 0);
-  const unstartedCount = allConcepts.filter((c: Concept) => c.masteries.length === 0).length;
 
   // Vocab counts (untouched by the rounds redesign)
   type VocabWord = Concept["vocabWords"][number];
@@ -128,7 +127,6 @@ export default async function SubjectPage({
 
       <SubjectQueueButtons
         slug={slug}
-        unstartedCount={unstartedCount}
         vocabNewCount={vocabNewCount}
         vocabDueCount={vocabDueCount}
       />

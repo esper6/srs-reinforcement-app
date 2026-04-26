@@ -2,34 +2,22 @@ import Link from "next/link";
 
 interface SubjectQueueButtonsProps {
   slug: string;
-  unstartedCount: number;
   vocabNewCount: number;
   vocabDueCount: number;
 }
 
+// Per-subject action buttons. Round-side queues are rendered separately by
+// <RoundQueue /> below this component on the subject page; this row only
+// surfaces the vocab queues, which run on a separate SRS engine.
 export default function SubjectQueueButtons({
   slug,
-  unstartedCount,
   vocabNewCount,
   vocabDueCount,
 }: SubjectQueueButtonsProps) {
-  // Note: the rounds-redesign retired the per-subject "Reviews" button — round
-  // reviews are surfaced directly in the per-concept Round Queue below.
-  const nothingDue = unstartedCount === 0 && vocabNewCount === 0 && vocabDueCount === 0;
+  const nothingDue = vocabNewCount === 0 && vocabDueCount === 0;
 
   return (
     <div className="flex flex-wrap gap-3 mb-8">
-      {unstartedCount > 0 && (
-        <Link
-          href={`/learn/queue/${slug}`}
-          className="btn-neon px-5 py-2.5 rounded-lg text-sm font-medium font-[family-name:var(--font-share-tech-mono)] inline-flex items-center gap-2"
-        >
-          <span>Lessons</span>
-          <span className="bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] px-2 py-0.5 rounded text-xs">
-            {unstartedCount}
-          </span>
-        </Link>
-      )}
       {vocabNewCount > 0 && (
         <Link
           href={`/drill/${slug}?mode=lessons`}
@@ -54,7 +42,7 @@ export default function SubjectQueueButtons({
       )}
       {nothingDue && (
         <div className="text-[var(--foreground)] opacity-40 text-sm font-[family-name:var(--font-share-tech-mono)] py-2">
-          All caught up — check back later
+          Vocab is up to date — round queue below
         </div>
       )}
     </div>
