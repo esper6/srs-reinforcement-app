@@ -183,34 +183,6 @@ export default async function SubjectPage({
       />
 
       <BurnedShelf concepts={burnedConcepts} />
-
-      <div className="space-y-8">
-        {curriculum.sections.map((section: Section) => (
-          <div key={section.id}>
-            <h2 className="font-[family-name:var(--font-share-tech-mono)] text-lg font-semibold text-[var(--neon-magenta)] mb-3 border-b border-[var(--border-retro)] pb-2 glow-magenta">
-              {section.name}
-            </h2>
-            <div className="space-y-2">
-              {section.concepts.map((concept: Concept) => (
-                <Link
-                  key={concept.id}
-                  href={`/learn/${concept.id}`}
-                  className="flex items-center gap-4 bg-[var(--surface)] border border-[var(--border-retro)] rounded-lg px-4 py-3 hover:border-[var(--neon-cyan)]/30 hover:box-glow-cyan transition-all duration-300"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[var(--foreground)] text-sm font-medium truncate">
-                      {concept.title}
-                    </p>
-                    <p className="text-[var(--foreground)] opacity-30 text-xs truncate">
-                      {concept.description}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
