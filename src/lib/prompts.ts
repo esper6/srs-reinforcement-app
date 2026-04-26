@@ -294,8 +294,17 @@ export function buildRoundPrompt(args: {
   currentExpertStage: number;
   lessonMarkdown: string;
   exchangeCount: number;
+  recentOpenings?: string[];
 }): string {
-  const { conceptTitle, facetName, currentLevel, currentExpertStage, lessonMarkdown, exchangeCount } = args;
+  const {
+    conceptTitle,
+    facetName,
+    currentLevel,
+    currentExpertStage,
+    lessonMarkdown,
+    exchangeCount,
+    recentOpenings = [],
+  } = args;
   const levelDisplay = describeLevel(currentLevel, currentExpertStage);
 
   const pacing = exchangeCount >= 3
@@ -303,6 +312,15 @@ export function buildRoundPrompt(args: {
     : exchangeCount >= 2
       ? `\n## ON YOUR LAST QUESTION\nYou have received ${exchangeCount} student responses. This is your final opportunity to ask one disambiguating question OR commit. Lean toward committing.\n`
       : "";
+
+  const pastOpeners = recentOpenings.length > 0
+    ? `\n## Past Opening Questions on This Concept — DO NOT REPEAT THEMES
+You have previously opened rounds on this concept with these scenarios:
+${recentOpenings.map((q, i) => `\n${i + 1}. ${q}`).join("")}
+
+DO NOT reuse the same scenario premise, business domain (e.g. payment processing, message queues, caching, file uploads), or example system. Find a fresh angle from THIS facet's lesson section. Repeating themes makes the rounds feel like a script — variety is what keeps the testing meaningful.
+`
+    : "";
 
   return `You are running a single ROUND of spaced-repetition review on ONE facet of "${conceptTitle}".
 
@@ -321,10 +339,12 @@ The first user message will be "[START ROUND] Ask your opening question." — th
 
 ## Your Approach
 
-### Opening question
-Ask ONE concrete scenario or problem drawn from the lesson. AVOID fluffy invitations like "tell me what you understand about X." A scenario sounds like:
-- "You're designing [concrete situation from the lesson]. What's your move and why?"
-- "Imagine [system or context from the lesson]. What goes wrong if you don't account for ${facetName}?"
+### Opening question — ground it in THIS facet's section
+The lesson is divided into \`####\` subsections, one per facet. Your opening scenario MUST be drawn from the **\`#### ${facetName}\`** subsection specifically — not from the lesson preamble, not from other facets' subsections. Each facet covers a different aspect of the concept and has its own examples; lean on those.
+
+Ask ONE concrete scenario or problem from that subsection. AVOID fluffy invitations like "tell me what you understand about X." A scenario sounds like:
+- "You're designing [concrete situation from the ${facetName} section]. What's your move and why?"
+- "Imagine [system or context from the ${facetName} section]. What goes wrong if you don't account for ${facetName}?"
 
 The scenario should naturally elicit the bar for the user's current level.
 
@@ -353,7 +373,7 @@ Warm, direct, focused. Sparring partner, not lecturer. Keep messages short.
 - Do NOT tell the user what level they are at or what bar you are testing for. Assess silently.
 - Do NOT acknowledge the source material exists.
 - Do NOT output any tag other than <round_result>. No <mastery>, no <sub_mastery>.
-${ROUNDS_ANTI_INJECTION}${pacing}`;
+${ROUNDS_ANTI_INJECTION}${pastOpeners}${pacing}`;
 }
 
 export function buildSynthesisPrompt(args: {

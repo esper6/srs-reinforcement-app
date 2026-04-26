@@ -201,6 +201,37 @@ export async function POST(req: NextRequest) {
     (m) => m.role === "user" && !m.content.startsWith("[START ROUND]")
   ).length;
 
+  // Pull the last 5 round-opening questions on this concept (the first
+  // assistant message of each completed ROUND session). Passed to the prompt
+  // so Claude can avoid reusing the same scenario premise across rounds —
+  // different facets should naturally produce different scenarios.
+  // Skipped on continuation calls (sessionId set) since we only seed openings;
+  // mid-round Claude already has its own opener in conversation history.
+  let recentOpenings: string[] = [];
+  if (!sessionId) {
+    const recentSessions = await prisma.chatSession.findMany({
+      where: {
+        userId,
+        conceptId,
+        mode: "ROUND",
+        finishedAt: { not: null },
+        id: { not: chatSession.id },
+      },
+      orderBy: { startedAt: "desc" },
+      take: 5,
+      include: {
+        messages: {
+          where: { role: "assistant" },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+        },
+      },
+    });
+    recentOpenings = recentSessions
+      .map((s: { messages: { content: string }[] }) => s.messages[0]?.content ?? "")
+      .filter((c: string) => c.length > 0);
+  }
+
   const systemPrompt = buildRoundPrompt({
     conceptTitle: concept.title,
     facetName: activeFacetName,
@@ -208,6 +239,7 @@ export async function POST(req: NextRequest) {
     currentExpertStage,
     lessonMarkdown: concept.lessonMarkdown,
     exchangeCount,
+    recentOpenings,
   });
 
   // Resolve LLM provider + key
