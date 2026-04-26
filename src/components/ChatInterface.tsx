@@ -208,7 +208,7 @@ export default function ChatInterface({
                 </button>
                 <div className={`panel-expand ${showLesson ? "expanded" : ""}`}>
                   <div>
-                    <div className="px-4 pb-4 text-sm text-[var(--foreground)] opacity-60 leading-relaxed border-t border-[var(--border-retro)] pt-3 prose prose-invert prose-sm max-w-none">
+                    <div className="px-4 pb-4 border-t border-[var(--border-retro)] pt-3 lesson-markdown">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{lessonMarkdown}</ReactMarkdown>
                     </div>
                   </div>

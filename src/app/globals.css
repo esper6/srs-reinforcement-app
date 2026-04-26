@@ -300,3 +300,64 @@ body::after {
   border-top-color: var(--neon-cyan);
   filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.4));
 }
+
+/* ── Lesson markdown (no @tailwindcss/typography in v4 setup; hand-styled) ── */
+.lesson-markdown {
+  color: rgba(208, 208, 224, 0.88);
+  line-height: 1.7;
+}
+.lesson-markdown h3 {
+  color: var(--neon-cyan);
+  font-family: var(--font-share-tech-mono);
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0.25rem 0 1rem;
+  text-shadow:
+    0 0 7px var(--neon-cyan),
+    0 0 20px rgba(0, 240, 255, 0.3);
+}
+.lesson-markdown h4 {
+  color: var(--neon-magenta);
+  font-family: var(--font-share-tech-mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.5rem;
+  letter-spacing: 0.02em;
+}
+.lesson-markdown p {
+  margin: 0.85rem 0;
+}
+.lesson-markdown strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.lesson-markdown em {
+  color: rgba(0, 255, 136, 0.85);
+  font-style: italic;
+}
+.lesson-markdown code {
+  background: var(--surface-light);
+  color: var(--neon-cyan);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  font-family: var(--font-geist-mono);
+}
+.lesson-markdown ul {
+  list-style: disc;
+  margin: 0.75rem 0 0.75rem 1.5rem;
+}
+.lesson-markdown ol {
+  list-style: decimal;
+  margin: 0.75rem 0 0.75rem 1.5rem;
+}
+.lesson-markdown li {
+  margin: 0.25rem 0;
+}
+.lesson-markdown blockquote {
+  border-left: 2px solid var(--neon-magenta);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: rgba(208, 208, 224, 0.7);
+  font-style: italic;
+}

@@ -32,7 +32,7 @@ export default function LessonGate({
         When you start the first round, the lesson is hidden — you'll be tested on recall, not recognition.
       </p>
 
-      <div className="bg-[var(--surface)] border border-[var(--border-retro)] rounded-lg p-6 prose prose-invert prose-sm max-w-none">
+      <div className="bg-[var(--surface)] border border-[var(--border-retro)] rounded-lg p-6 lesson-markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{lessonMarkdown}</ReactMarkdown>
       </div>
 
