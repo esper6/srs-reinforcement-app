@@ -103,6 +103,10 @@ model Concept {
   title          String
   description    String
   lessonMarkdown String           @db.Text
+  // Rounds redesign: pre-extracted facet names (3-5 per concept). New curricula
+  // populate this at import time. Empty array means the concept has no facets
+  // defined yet — round endpoints refuse to operate on it (graceful failure).
+  facets         String[]         @default([])
   order          Int              @default(0)
   sectionId      String
   section        Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)

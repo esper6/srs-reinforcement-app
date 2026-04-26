@@ -243,7 +243,7 @@ Replace `<sub_mastery name="..." score="X" decay_rate="Y" />` with:
 
 ```xml
 <round_result name="Consistency" outcome="advance" />
-<!-- outcome: advance | hold | drop -->
+<!-- outcome: advance | drop (binary — Claude must commit to a call within 3 questions) -->
 ```
 
 Synthesis returns one of:
