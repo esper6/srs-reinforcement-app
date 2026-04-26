@@ -1,11 +1,13 @@
 import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
-import { authOptions } from "@/lib/auth";
+import { authOptions, ADMIN_EMAIL } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { FacetLevel } from "@prisma/client";
 import { isSynthesisReady } from "@/lib/levels";
 import SubjectQueueButtons from "@/components/SubjectQueueButtons";
 import RoundQueue from "@/components/RoundQueue";
+import DeleteSubjectButton from "@/components/DeleteSubjectButton";
+import ArchiveSubjectButton from "@/components/ArchiveSubjectButton";
 import Link from "next/link";
 
 export default async function SubjectPage({
@@ -23,6 +25,7 @@ export default async function SubjectPage({
   const curriculum = await prisma.curriculum.findUnique({
     where: { slug },
     include: {
+      userPrefs: { where: { userId } },
       sections: {
         orderBy: { order: "asc" },
         include: {
@@ -94,6 +97,24 @@ export default async function SubjectPage({
 
   const totalRoundsDue = roundQueueConcepts.reduce((sum, c) => sum + c.roundsDue, 0);
 
+  // Per-user archive flag (independent of admin / shared curriculum row).
+  const userArchived = curriculum.userPrefs[0]?.archivedAt != null;
+
+  // Counts shown in the delete-subject confirmation modal (admin only).
+  // Cross-user: total mastery records and total vocab words tied to this curriculum.
+  const isAdmin = session.user.email === ADMIN_EMAIL;
+  const conceptCount = allConcepts.length;
+  const [masteryCount, vocabCount] = isAdmin
+    ? await Promise.all([
+        prisma.conceptMastery.count({
+          where: { concept: { section: { curriculumId: curriculum.id } } },
+        }),
+        prisma.vocabWord.count({
+          where: { concept: { section: { curriculumId: curriculum.id } } },
+        }),
+      ])
+    : [0, 0];
+
   // Vocab counts (untouched by the rounds redesign)
   type VocabWord = Concept["vocabWords"][number];
   type VocabProgress = VocabWord["progress"][number];
@@ -120,9 +141,28 @@ export default async function SubjectPage({
         &larr; Back to subjects
       </Link>
 
-      <h1 className="font-[family-name:var(--font-share-tech-mono)] text-2xl font-bold text-[var(--neon-cyan)] mb-2 glow-cyan tracking-wide">
-        {curriculum.name}
-      </h1>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h1 className="font-[family-name:var(--font-share-tech-mono)] text-2xl font-bold text-[var(--neon-cyan)] glow-cyan tracking-wide">
+          {curriculum.name}
+          {userArchived && (
+            <span className="ml-3 align-middle text-xs text-[var(--foreground)]/50 border border-[var(--border-retro)] rounded px-2 py-0.5 tracking-wide">
+              archived
+            </span>
+          )}
+        </h1>
+        <div className="flex items-center gap-4 pt-1">
+          <ArchiveSubjectButton slug={slug} archived={userArchived} />
+          {isAdmin && (
+            <DeleteSubjectButton
+              slug={slug}
+              name={curriculum.name}
+              conceptCount={conceptCount}
+              masteryCount={masteryCount}
+              vocabCount={vocabCount}
+            />
+          )}
+        </div>
+      </div>
       <p className="text-[var(--foreground)] opacity-50 text-sm mb-4">{curriculum.description}</p>
 
       <SubjectQueueButtons

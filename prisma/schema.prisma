@@ -48,6 +48,7 @@ model User {
   chatSessions      ChatSession[]
   apiKeys           UserApiKey[]
   vocabProgress     UserVocabProgress[]
+  curriculumPrefs   UserCurriculumPref[]
 }
 
 model UserApiKey {
@@ -79,14 +80,30 @@ model VerificationToken {
 // ─── Curriculum Structure ───
 
 model Curriculum {
-  id          String    @id @default(cuid())
+  id          String               @id @default(cuid())
   name        String
-  slug        String    @unique
+  slug        String                @unique
   description String
-  language    String    @default("")
-  iconClass   String    @default("")
-  order       Int       @default(0)
+  language    String                @default("")
+  iconClass   String                @default("")
+  order       Int                   @default(0)
   sections    Section[]
+  userPrefs   UserCurriculumPref[]
+}
+
+// Per-user state for a (shared) curriculum. Currently just the archive flag —
+// archiving is a personal "hide this from my dashboard" action, not a global one.
+model UserCurriculumPref {
+  id           String     @id @default(cuid())
+  userId       String
+  curriculumId String
+  archivedAt   DateTime?
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, curriculumId])
+  @@index([userId])
+  @@index([curriculumId])
 }
 
 model Section {

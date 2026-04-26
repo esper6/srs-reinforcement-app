@@ -22,6 +22,28 @@ export const authOptions: NextAuthOptions = {
           where: { email: ADMIN_EMAIL },
           data: { approved: true },
         });
+
+        // First-run default: relay (admin uses enterprise license, no API key needed).
+        // Fires only while preferredProvider is still the schema default AND no
+        // UserApiKey rows exist — once the admin configures anything, we stop touching it.
+        const adminUser = await prisma.user.findUnique({
+          where: { email: ADMIN_EMAIL },
+          select: {
+            id: true,
+            preferredProvider: true,
+            _count: { select: { apiKeys: true } },
+          },
+        });
+        if (
+          adminUser &&
+          adminUser.preferredProvider === "ANTHROPIC" &&
+          adminUser._count.apiKeys === 0
+        ) {
+          await prisma.user.update({
+            where: { id: adminUser.id },
+            data: { preferredProvider: "CLAUDE_RELAY" },
+          });
+        }
       }
       return true; // Always allow sign-in; approval is checked separately
     },

@@ -6,6 +6,7 @@ interface SubjectCardProps {
   description: string | null;
   conceptCount: number;
   masteredCount: number;
+  archived?: boolean;
 }
 
 export default function SubjectCard({
@@ -14,6 +15,7 @@ export default function SubjectCard({
   description,
   conceptCount,
   masteredCount,
+  archived = false,
 }: SubjectCardProps) {
   const pct = conceptCount > 0 ? (masteredCount / conceptCount) * 100 : 0;
   const accent =
@@ -37,6 +39,11 @@ export default function SubjectCard({
     >
       <h2 className="font-[family-name:var(--font-share-tech-mono)] text-[var(--neon-cyan)] font-semibold text-lg mb-1 group-hover:glow-cyan transition-all">
         {name}
+        {archived && (
+          <span className="ml-2 align-middle text-[10px] text-[var(--foreground)]/60 border border-[var(--border-retro)] rounded px-1.5 py-0.5 tracking-wide font-normal">
+            archived
+          </span>
+        )}
       </h2>
       <p className="text-[var(--foreground)] opacity-70 text-sm mb-4 line-clamp-2">{description}</p>
       <div className="flex items-center justify-between">
