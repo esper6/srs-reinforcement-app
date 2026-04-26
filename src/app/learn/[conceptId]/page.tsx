@@ -6,7 +6,12 @@ import { FacetLevel } from "@prisma/client";
 import LessonGate from "@/components/LessonGate";
 import RoundView from "@/components/RoundView";
 import RoundResultView from "@/components/RoundResultView";
+import SynthesisView from "@/components/SynthesisView";
+import SynthesisResultView from "@/components/SynthesisResultView";
+import ChatInterface from "@/components/ChatInterface";
+import { isSynthesisReady } from "@/lib/levels";
 import type { RoundResult } from "@/hooks/useRound";
+import type { SynthesisResult } from "@/hooks/useSynthesis";
 
 interface SubMasteryDTO {
   name: string;
@@ -75,15 +80,24 @@ function pickWeakestOverdue(facets: ResolvedFacet[]): ResolvedFacet | null {
   return overdue[0];
 }
 
+function formatCooldownDate(d: Date): string {
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
 type PageState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "needs_reimport" }
   | { kind: "mastered" }
   | { kind: "no_rounds_due" }
+  | { kind: "synthesis_gate"; hasRoundsDue: boolean }
+  | { kind: "synthesis_cooldown"; cooldownUntil: Date }
+  | { kind: "synthesis_in_progress" }
+  | { kind: "synthesis_result"; result: SynthesisResult }
   | { kind: "lesson_gate" }
   | { kind: "round"; facet: ResolvedFacet }
-  | { kind: "result"; result: RoundResult; previousFacet: ResolvedFacet };
+  | { kind: "result"; result: RoundResult; previousFacet: ResolvedFacet }
+  | { kind: "extra_credit"; previousFacetName: string };
 
 export default function LearnPage() {
   const params = useParams();
@@ -93,7 +107,7 @@ export default function LearnPage() {
   const [pageState, setPageState] = useState<PageState>({ kind: "loading" });
   const [refreshTick, setRefreshTick] = useState(0);
 
-  // Re-fetch concept + mastery state when refreshTick changes (after a round resolves)
+  // Fetch concept + mastery state. Re-runs after a round resolves.
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/concept/${conceptId}`)
@@ -114,12 +128,37 @@ export default function LearnPage() {
           setPageState({ kind: "mastered" });
           return;
         }
+
+        const now = new Date();
+        const facets = resolveFacets(data, now);
+        const allFacetsAtExpert3 =
+          facets.length > 0 &&
+          facets.every((f) =>
+            isSynthesisReady({ level: f.level, expertStage: f.expertStage })
+          );
+        const cooldownUntil = data.mastery?.synthesisCooldownUntil
+          ? new Date(data.mastery.synthesisCooldownUntil)
+          : null;
+        const cooldownActive = cooldownUntil != null && cooldownUntil > now;
+
+        // Synthesis-ready takes precedence over individual rounds — user explicitly
+        // opts in; the gate also tells them rounds are still available if they want.
+        if (allFacetsAtExpert3 && !cooldownActive) {
+          const hasRoundsDue = facets.some((f) => f.due);
+          setPageState({ kind: "synthesis_gate", hasRoundsDue });
+          return;
+        }
+        if (allFacetsAtExpert3 && cooldownActive && cooldownUntil) {
+          setPageState({ kind: "synthesis_cooldown", cooldownUntil });
+          return;
+        }
+
         const hasAnyMastery = (data.mastery?.subMasteries.length ?? 0) > 0;
         if (!hasAnyMastery) {
           setPageState({ kind: "lesson_gate" });
           return;
         }
-        const facets = resolveFacets(data, new Date());
+
         const weakest = pickWeakestOverdue(facets);
         if (!weakest) {
           setPageState({ kind: "no_rounds_due" });
@@ -164,14 +203,34 @@ export default function LearnPage() {
   }, []);
 
   const handleNextRound = useCallback(() => {
-    // Re-fetch — server has applied the level transition, picks next weakest from new state
     setPageState({ kind: "loading" });
     setRefreshTick((t) => t + 1);
   }, []);
 
   const handleExtraCredit = useCallback(() => {
-    // TODO Phase 5/6: wire to ChatInterface in extra-credit mode after the round
-    alert("Extra Credit wiring is coming next — for now, click Done.");
+    setPageState((prev) => {
+      if (prev.kind !== "result") return prev;
+      return { kind: "extra_credit", previousFacetName: prev.previousFacet.name };
+    });
+  }, []);
+
+  const handleStartSynthesis = useCallback(() => {
+    setPageState({ kind: "synthesis_in_progress" });
+  }, []);
+
+  const handleSkipSynthesisDoRound = useCallback(() => {
+    if (!concept) return;
+    const facets = resolveFacets(concept, new Date());
+    const weakest = pickWeakestOverdue(facets);
+    if (!weakest) {
+      setPageState({ kind: "no_rounds_due" });
+      return;
+    }
+    setPageState({ kind: "round", facet: weakest });
+  }, [concept]);
+
+  const handleSynthesisResolve = useCallback((result: SynthesisResult) => {
+    setPageState({ kind: "synthesis_result", result });
   }, []);
 
   if (pageState.kind === "loading" || !concept) {
@@ -258,6 +317,103 @@ export default function LearnPage() {
     );
   }
 
+  if (pageState.kind === "synthesis_gate") {
+    return (
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+        {BackBar}
+        <div className="flex-1 flex items-center justify-center px-6 py-8">
+          <div className="max-w-md w-full bg-[var(--surface)] border border-[var(--neon-magenta)]/40 rounded-lg p-6 space-y-5 text-center">
+            <div className="text-xs text-[var(--neon-magenta)]/80 font-[family-name:var(--font-share-tech-mono)] tracking-[0.4em]">
+              ⚛ READY FOR SYNTHESIS
+            </div>
+            <div className="text-2xl text-[var(--neon-magenta)] font-[family-name:var(--font-share-tech-mono)] glow-magenta">
+              {concept.title}
+            </div>
+            <div className="text-sm text-[var(--foreground)]/70 leading-relaxed">
+              You've held every facet at Expert across the staircase. The synthesis round is the capstone — a single integration test that, on pass, masters the concept and burns it from your queue.
+            </div>
+            <div className="text-xs text-[var(--foreground)]/40">
+              On fail: no facets drop, but a 1-week cooldown before retry.
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={handleStartSynthesis}
+                className="w-full px-4 py-3 bg-[var(--neon-magenta)]/10 border border-[var(--neon-magenta)]/40 text-[var(--neon-magenta)] rounded-lg font-[family-name:var(--font-share-tech-mono)] hover:bg-[var(--neon-magenta)]/20 hover:border-[var(--neon-magenta)]/60 transition-all duration-200"
+              >
+                Take the Mastery Test ▶
+              </button>
+              {pageState.hasRoundsDue && (
+                <button
+                  onClick={handleSkipSynthesisDoRound}
+                  className="w-full px-4 py-2 text-[var(--foreground)]/60 hover:text-[var(--foreground)]/80 font-[family-name:var(--font-share-tech-mono)] text-xs transition-colors"
+                >
+                  Continue practicing rounds instead
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (pageState.kind === "synthesis_cooldown") {
+    return (
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+        {BackBar}
+        <div className="flex-1 flex items-center justify-center text-center px-6">
+          <div className="space-y-3 max-w-md">
+            <div className="text-xs text-[var(--neon-magenta)]/70 font-[family-name:var(--font-share-tech-mono)] tracking-widest">
+              SYNTHESIS COOLDOWN
+            </div>
+            <div className="text-[var(--neon-cyan)] font-[family-name:var(--font-share-tech-mono)]">
+              {concept.title}
+            </div>
+            <div className="text-sm text-[var(--foreground)]/70">
+              Synthesis can be retried on{" "}
+              <span className="text-[var(--neon-magenta)]">
+                {formatCooldownDate(pageState.cooldownUntil)}
+              </span>
+              .
+            </div>
+            <div className="text-xs text-[var(--foreground)]/40">
+              Use the time to revisit the lesson — the connections settle better with a gap.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (pageState.kind === "synthesis_in_progress") {
+    return (
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+        {BackBar}
+        <div className="flex-1 flex flex-col min-h-0">
+          <SynthesisView
+            conceptId={conceptId}
+            conceptTitle={concept.title}
+            facetNames={concept.facets}
+            onResolve={handleSynthesisResolve}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (pageState.kind === "synthesis_result") {
+    return (
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+        {BackBar}
+        <SynthesisResultView
+          result={pageState.result}
+          conceptTitle={concept.title}
+          onDone={navigateBack}
+        />
+      </div>
+    );
+  }
+
   if (pageState.kind === "lesson_gate") {
     return (
       <div className="flex-1 flex flex-col w-full">
@@ -290,9 +446,6 @@ export default function LearnPage() {
   }
 
   if (pageState.kind === "result") {
-    // Other facets that were due before this round (excluding the one we just finished).
-    // Approximation — we haven't re-fetched yet — but good enough to decide whether to
-    // offer the "Next round" button.
     const facets = resolveFacets(concept, new Date());
     const otherDue = facets.filter(
       (f) => f.due && f.name !== pageState.previousFacet.name
@@ -309,6 +462,31 @@ export default function LearnPage() {
           onExtraCredit={handleExtraCredit}
           onDone={navigateBack}
         />
+      </div>
+    );
+  }
+
+  if (pageState.kind === "extra_credit") {
+    // Extra Credit reuses the legacy ChatInterface in extra-credit-only mode
+    // (no assessment phase, no scoring). Mode prop is irrelevant when
+    // initialExtraCredit is true — /api/chat short-circuits to the extra
+    // credit prompt builder.
+    return (
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+        {BackBar}
+        <div className="px-4 pt-2 pb-1 text-xs text-[var(--neon-magenta)]/70 font-[family-name:var(--font-share-tech-mono)] tracking-wider">
+          ◆ EXTRA CREDIT · {pageState.previousFacetName}
+        </div>
+        <div className="flex-1 flex flex-col min-h-0">
+          <ChatInterface
+            conceptId={conceptId}
+            conceptTitle={concept.title}
+            mode="REVIEW"
+            initialExtraCredit
+            lessonMarkdown={concept.lessonMarkdown}
+            onComplete={navigateBack}
+          />
+        </div>
       </div>
     );
   }

@@ -13,6 +13,9 @@ interface ChatInterfaceProps {
   conceptTitle: string;
   mode: "ASSESS" | "LEARN" | "REVIEW";
   lessonMarkdown?: string;
+  // Start the chat already in extra-credit mode. Skips the auto-fire of the
+  // mode trigger so the user types the first message themselves.
+  initialExtraCredit?: boolean;
   onMasteryUpdate?: (score: number, decayRate: number, subMasteries?: SubMasteryData[]) => void;
   onComplete?: () => void;
   initialMessage?: string;
@@ -23,6 +26,7 @@ export default function ChatInterface({
   conceptTitle,
   mode,
   lessonMarkdown,
+  initialExtraCredit,
   onMasteryUpdate,
   onComplete,
   initialMessage,
@@ -30,6 +34,7 @@ export default function ChatInterface({
   const { messages, isLoading, isExtraCredit, masteryResult, sendMessage } = useChat({
     conceptId,
     mode,
+    initialExtraCredit,
     onMasteryUpdate,
   });
   const [input, setInput] = useState("");
@@ -39,7 +44,9 @@ export default function ChatInterface({
   const hasSentInitial = useRef(false);
 
   useEffect(() => {
-    if (!hasSentInitial.current) {
+    // In extra-credit-only mode there's no assessment phase trigger to fire.
+    // The user types their first message themselves.
+    if (!hasSentInitial.current && !initialExtraCredit) {
       hasSentInitial.current = true;
       const trigger =
         initialMessage ??

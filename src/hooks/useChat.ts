@@ -6,16 +6,19 @@ import { ChatMessageData, SubMasteryData } from "@/lib/types";
 interface UseChatOptions {
   conceptId: string;
   mode: "ASSESS" | "LEARN" | "REVIEW";
+  // Start the chat already in extra-credit mode (no assessment phase). Used by
+  // the rounds-redesign flow when the user clicks "Extra Credit" after a round.
+  initialExtraCredit?: boolean;
   onMasteryUpdate?: (score: number, decayRate: number, subMasteries?: SubMasteryData[]) => void;
 }
 
-export function useChat({ conceptId, mode, onMasteryUpdate }: UseChatOptions) {
+export function useChat({ conceptId, mode, initialExtraCredit, onMasteryUpdate }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isExtraCredit, setIsExtraCredit] = useState(false);
+  const [isExtraCredit, setIsExtraCredit] = useState(initialExtraCredit ?? false);
   const [masteryResult, setMasteryResult] = useState<{ score: number; subMasteries: SubMasteryData[]; messageCount: number } | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const extraCreditRef = useRef(false);
+  const extraCreditRef = useRef(initialExtraCredit ?? false);
 
   const sendMessage = useCallback(
     async (userMessage: string) => {
