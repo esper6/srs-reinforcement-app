@@ -12,6 +12,9 @@ interface RoundResultViewProps {
   onNextRound: () => void;
   onExtraCredit: () => void;
   onDone: () => void;
+  // Burn-mode hides the per-facet Extra Credit button — the flow there is
+  // chained drilling, and EC would derail it into single-concept chat.
+  showExtraCredit?: boolean;
 }
 
 const LEVEL_LABEL: Record<FacetLevel, string> = {
@@ -55,6 +58,7 @@ export default function RoundResultView({
   onNextRound,
   onExtraCredit,
   onDone,
+  showExtraCredit = true,
 }: RoundResultViewProps) {
   const previousState = { level: previousLevel, expertStage: previousExpertStage };
   const newState =
@@ -100,12 +104,14 @@ export default function RoundResultView({
               ▶ Next round
             </button>
           )}
-          <button
-            onClick={onExtraCredit}
-            className="w-full px-4 py-3 bg-[var(--surface-light)] border border-[var(--border-retro)] text-[var(--foreground)]/80 rounded-lg font-[family-name:var(--font-share-tech-mono)] text-sm hover:bg-[var(--surface-light)]/80 transition-all duration-200"
-          >
-            ◆ Extra Credit on {result.name}
-          </button>
+          {showExtraCredit && (
+            <button
+              onClick={onExtraCredit}
+              className="w-full px-4 py-3 bg-[var(--surface-light)] border border-[var(--border-retro)] text-[var(--foreground)]/80 rounded-lg font-[family-name:var(--font-share-tech-mono)] text-sm hover:bg-[var(--surface-light)]/80 transition-all duration-200"
+            >
+              ◆ Extra Credit on {result.name}
+            </button>
+          )}
           <button
             onClick={onDone}
             className="w-full px-4 py-2 text-[var(--foreground)]/50 hover:text-[var(--foreground)]/80 font-[family-name:var(--font-share-tech-mono)] text-sm transition-colors"

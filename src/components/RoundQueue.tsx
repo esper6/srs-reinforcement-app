@@ -23,6 +23,7 @@ interface ConceptRoundState {
 interface RoundQueueProps {
   concepts: ConceptRoundState[];
   totalRoundsDue: number;
+  slug: string;
 }
 
 const LEVEL_RANK: Record<FacetLevel, number> = {
@@ -73,18 +74,30 @@ function FacetPips({ facet }: { facet: FacetSummary }) {
   );
 }
 
-export default function RoundQueue({ concepts, totalRoundsDue }: RoundQueueProps) {
-  const visible = concepts.filter((c) => c.facets.length > 0);
+export default function RoundQueue({ concepts, totalRoundsDue, slug }: RoundQueueProps) {
+  // Mastered concepts live in BurnedShelf below; hide them here so the active
+  // queue stays focused on what still needs work.
+  const visible = concepts.filter((c) => c.facets.length > 0 && !c.mastered);
   if (visible.length === 0) return null;
 
   return (
     <div className="mt-8 mb-6">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-3 gap-3">
         <h2 className="font-[family-name:var(--font-share-tech-mono)] text-sm text-[var(--foreground)] opacity-50 uppercase tracking-wider">
           Round Queue
         </h2>
-        <div className="text-xs text-[var(--foreground)]/40 font-[family-name:var(--font-share-tech-mono)]">
-          {totalRoundsDue} round{totalRoundsDue === 1 ? "" : "s"} due
+        <div className="flex items-baseline gap-3">
+          <span className="text-xs text-[var(--foreground)]/40 font-[family-name:var(--font-share-tech-mono)]">
+            {totalRoundsDue} round{totalRoundsDue === 1 ? "" : "s"} due
+          </span>
+          {totalRoundsDue > 0 && (
+            <Link
+              href={`/burn/${slug}`}
+              className="text-xs px-2.5 py-1 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/40 text-[var(--neon-cyan)] rounded font-[family-name:var(--font-share-tech-mono)] hover:bg-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)]/60 transition-all"
+            >
+              Burn through ▶
+            </Link>
+          )}
         </div>
       </div>
 

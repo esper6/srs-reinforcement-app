@@ -90,6 +90,11 @@ export async function GET(req: NextRequest) {
       const roundsDue = isMastered ? 0 : facets.filter((f) => f.due).length;
       totalRoundsDue += roundsDue;
 
+      // True iff the user has at least one SubConceptMastery row for this
+      // concept — i.e., they've completed ≥1 round here. Burn-mode uses this
+      // to skip lesson-gate concepts (those need explicit /learn entry first).
+      const started = (mastery?.subMasteries.length ?? 0) > 0;
+
       return {
         id: concept.id,
         title: concept.title,
@@ -99,6 +104,7 @@ export async function GET(req: NextRequest) {
         masteredAt: mastery?.masteredAt ?? null,
         synthesisReady,
         synthesisCooldownUntil: mastery?.synthesisCooldownUntil ?? null,
+        started,
         facets,
         roundsDue,
       };

@@ -6,6 +6,7 @@ import { FacetLevel } from "@prisma/client";
 import { isSynthesisReady } from "@/lib/levels";
 import SubjectQueueButtons from "@/components/SubjectQueueButtons";
 import RoundQueue from "@/components/RoundQueue";
+import BurnedShelf from "@/components/BurnedShelf";
 import DeleteSubjectButton from "@/components/DeleteSubjectButton";
 import ArchiveSubjectButton from "@/components/ArchiveSubjectButton";
 import Link from "next/link";
@@ -91,11 +92,15 @@ export default async function SubjectPage({
       facets,
       roundsDue,
       mastered: isMastered,
+      masteredAt: mastery?.masteredAt ?? null,
       synthesisReady,
     };
   });
 
   const totalRoundsDue = roundQueueConcepts.reduce((sum, c) => sum + c.roundsDue, 0);
+  const burnedConcepts = roundQueueConcepts
+    .filter((c) => c.mastered)
+    .map((c) => ({ id: c.id, title: c.title, masteredAt: c.masteredAt }));
 
   // Per-user archive flag (independent of admin / shared curriculum row).
   const userArchived = curriculum.userPrefs[0]?.archivedAt != null;
@@ -171,7 +176,13 @@ export default async function SubjectPage({
         vocabDueCount={vocabDueCount}
       />
 
-      <RoundQueue concepts={roundQueueConcepts} totalRoundsDue={totalRoundsDue} />
+      <RoundQueue
+        concepts={roundQueueConcepts}
+        totalRoundsDue={totalRoundsDue}
+        slug={slug}
+      />
+
+      <BurnedShelf concepts={burnedConcepts} />
 
       <div className="space-y-8">
         {curriculum.sections.map((section: Section) => (
