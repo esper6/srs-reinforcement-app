@@ -183,6 +183,7 @@ export default function ImportPage() {
 
   function handleParse() {
     setParseError(null);
+    setImportError(null);
     try {
       const parsed = JSON.parse(jsonText);
       if (!parsed.Name || !parsed.Slug || !parsed.Sections) {
@@ -357,7 +358,11 @@ export default function ImportPage() {
 
           <div className="flex gap-3">
             <button
-              onClick={() => setStep("paste")}
+              onClick={() => {
+                setImportError(null);
+                setParseError(null);
+                setStep("paste");
+              }}
               className="px-5 py-2 bg-[var(--surface)] border border-[var(--border-retro)] text-[var(--foreground)]/60 rounded-lg font-[family-name:var(--font-share-tech-mono)] text-sm hover:border-[var(--foreground)]/30 transition-all duration-200"
             >
               Back
