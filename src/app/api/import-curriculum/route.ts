@@ -12,6 +12,7 @@ interface ConceptInput {
   Title: string;
   Description: string;
   LessonMarkdown: string;
+  Facets: string[];
   Order: number;
   Prompts: unknown[];
   Vocab?: VocabInput[];
@@ -42,10 +43,23 @@ const MAX_DEFINITION_CHARS = 1000;
 const MAX_NAME_CHARS = 200;
 const MAX_SLUG_CHARS = 80;
 const MAX_DESCRIPTION_CHARS = 500;
+const MIN_FACETS_PER_CONCEPT = 3;
+const MAX_FACETS_PER_CONCEPT = 5;
+const MAX_FACET_NAME_CHARS = 100;
 
 // Strip HTML tags from text fields to prevent stored XSS
 function stripHtml(str: string): string {
   return str.replace(/<[^>]*>/g, "");
+}
+
+// Extract `#### Heading` titles from a markdown lesson, in order. Used to
+// verify the contract between the Facets array and the lesson structure
+// (see docs/curriculum-generator-prompt.md).
+function extractH4Subheadings(markdown: string): string[] {
+  return markdown
+    .split("\n")
+    .filter((l) => /^####\s+/.test(l))
+    .map((l) => l.replace(/^####\s+/, "").trim());
 }
 
 function validateCurriculum(data: unknown): { valid: true; curriculum: CurriculumInput } | { valid: false; error: string } {
@@ -114,6 +128,46 @@ function validateCurriculum(data: unknown): { valid: true; curriculum: Curriculu
       }
       if ((concept.LessonMarkdown as string).length > MAX_LESSON_CHARS) {
         return { valid: false, error: `Concept "${concept.Title}": LessonMarkdown is too long (${(concept.LessonMarkdown as string).length} chars, max ${MAX_LESSON_CHARS})` };
+      }
+      // Validate Facets array (rounds redesign)
+      if (!Array.isArray(concept.Facets)) {
+        return { valid: false, error: `Concept "${concept.Title}": Missing or invalid "Facets" (array of ${MIN_FACETS_PER_CONCEPT}-${MAX_FACETS_PER_CONCEPT} strings required)` };
+      }
+      const facets = concept.Facets as unknown[];
+      if (facets.length < MIN_FACETS_PER_CONCEPT || facets.length > MAX_FACETS_PER_CONCEPT) {
+        return { valid: false, error: `Concept "${concept.Title}": Facets must have ${MIN_FACETS_PER_CONCEPT}-${MAX_FACETS_PER_CONCEPT} entries (got ${facets.length})` };
+      }
+      for (let f = 0; f < facets.length; f++) {
+        const facet = facets[f];
+        if (typeof facet !== "string" || facet.length === 0) {
+          return { valid: false, error: `Concept "${concept.Title}": Facets[${f}] must be a non-empty string` };
+        }
+        if (facet.length > MAX_FACET_NAME_CHARS) {
+          return { valid: false, error: `Concept "${concept.Title}": Facets[${f}] is too long (max ${MAX_FACET_NAME_CHARS} chars)` };
+        }
+        // Reject HTML in facet names — they need to match #### headings literally,
+        // and stripping HTML at storage would break that contract at runtime.
+        if (/<[^>]*>/.test(facet)) {
+          return { valid: false, error: `Concept "${concept.Title}": Facets[${f}] contains HTML tags, which are not allowed in facet names` };
+        }
+      }
+      // Sanity check: Facets must match #### subheadings in LessonMarkdown
+      // character-for-character, in the same order. This is the contract from
+      // docs/curriculum-generator-prompt.md and is what the round engine relies on.
+      const subheadings = extractH4Subheadings(concept.LessonMarkdown as string);
+      if (subheadings.length !== facets.length) {
+        return {
+          valid: false,
+          error: `Concept "${concept.Title}": Facets count (${facets.length}) does not match #### subheadings in LessonMarkdown (${subheadings.length}). Each facet must have exactly one #### subheading in the lesson, in the same order.`,
+        };
+      }
+      for (let f = 0; f < facets.length; f++) {
+        if ((facets[f] as string) !== subheadings[f]) {
+          return {
+            valid: false,
+            error: `Concept "${concept.Title}": Facets[${f}] "${facets[f]}" does not match the #### subheading "${subheadings[f]}" at the same position. They must match character-for-character.`,
+          };
+        }
       }
       // Validate optional Vocab array
       if (concept.Vocab !== undefined) {
@@ -252,6 +306,7 @@ export async function POST(req: NextRequest) {
             title: stripHtml(concept.Title).trim(),
             description: stripHtml(concept.Description || "").trim(),
             lessonMarkdown: concept.LessonMarkdown, // Markdown kept intact — rendered safely by ReactMarkdown
+            facets: concept.Facets, // Validated upstream; HTML rejected; matches #### headings
             order: concept.Order || 0,
             sectionId: section.id,
           },

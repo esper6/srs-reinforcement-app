@@ -51,6 +51,7 @@ Output ONLY valid JSON. No commentary before or after. Keys are PascalCase. The 
           "Title": "Concept Title",
           "Description": "One-line concept description",
           "LessonMarkdown": "### Concept Title\n\nFull lesson content here...",
+          "Facets": ["First Facet Name", "Second Facet Name", "Third Facet Name"],
           "Order": 1,
           "Prompts": [],
           "Vocab": [
@@ -72,6 +73,7 @@ Output ONLY valid JSON. No commentary before or after. Keys are PascalCase. The 
 - **Order**: sequential integers starting at 1 for both sections and concepts
 - **Prompts**: always an empty array `[]`
 - **Vocab**: array of 5-10 key terms per concept. Each has `"Term"` and `"Definition"`. Definitions should be concise (1-2 sentences), self-contained, and capture the core meaning. These are used for flashcard drills separate from the Socratic assessment.
+- **Facets**: array of 3-5 strings naming the facets in this concept. MUST exactly match the `####` subheading text in the LessonMarkdown — one entry per subheading, in the same order, character-for-character. The app uses these names as stable identifiers in the spaced-repetition engine; renaming them later breaks user progress on that concept.
 - **Language** and **IconClass**: always empty strings `""`
 - Sections should build on each other — earlier sections establish vocabulary that later sections assume
 - No overlapping concepts within the same section — each concept owns its territory
@@ -82,7 +84,7 @@ The `LessonMarkdown` field is the most important part. The AI tutor uses it as i
 
 ### Structure
 
-Each lesson MUST have **3-5 clearly delineated sections**, each one mapping to a distinct assessable facet. Use `####` subheadings to separate them.
+Each lesson MUST have **3-5 clearly delineated sections**, each one mapping to a distinct assessable facet. Use `####` subheadings to separate them. The `Facets` JSON array on the concept MUST list these subheading titles exactly, in the same order — they are the contract between the lesson and the spaced-repetition engine.
 
 For each facet section, cover **four levels of depth**:
 1. **What** — Define it clearly
@@ -174,11 +176,23 @@ The trap many teams fall into is "REST-ish" APIs that look RESTful on the surfac
 
 **Why it's good:** Each section is a distinct facet. Each has definition + motivation + mechanism + judgment. The AI can probe at multiple levels — "What makes GET different from POST?" tests surface knowledge, "Why would caching break if you use GET for deletes?" tests deep understanding.
 
+The `Facets` array for this concept would be exactly:
+```json
+"Facets": [
+  "The Request-Response Model",
+  "Methods and Their Semantics",
+  "Status Codes as Communication",
+  "REST as a Design Philosophy"
+]
+```
+Note how the entries match the `####` subheading text character-for-character.
+
 ## Now generate the curriculum
 
 Generate the full curriculum JSON for the topic above. Remember:
 - 4-6 sections, 5 concepts each
-- Every lesson 800-1500 words with 3-5 facet sections
+- Every lesson 800-1500 words with 3-5 facet sections (using `####` subheadings)
+- Every concept's `Facets` array must list those subheading titles exactly, in order
 - 5-10 vocab terms per concept with concise definitions
 - Narrative style, not bullet lists
 - Output ONLY the JSON, nothing else
