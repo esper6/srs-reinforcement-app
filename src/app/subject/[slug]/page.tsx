@@ -2,10 +2,10 @@ import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { calculateCurrentMastery, getReviewThreshold } from "@/lib/mastery";
-import MasteryBar from "@/components/MasteryBar";
+import { FacetLevel } from "@prisma/client";
+import { isSynthesisReady } from "@/lib/levels";
 import SubjectQueueButtons from "@/components/SubjectQueueButtons";
-import DecayQueue from "@/components/DecayQueue";
+import RoundQueue from "@/components/RoundQueue";
 import Link from "next/link";
 
 export default async function SubjectPage({
@@ -45,24 +45,57 @@ export default async function SubjectPage({
 
   if (!curriculum) notFound();
 
-  // Count unstarted concepts and concepts due for review
   type Section = (typeof curriculum.sections)[number];
   type Concept = Section["concepts"][number];
-  const allConcepts = curriculum.sections.flatMap((s: Section) => s.concepts);
-  const unstartedCount = allConcepts.filter((c: Concept) => c.masteries.length === 0).length;
-  const reviewCount = allConcepts.filter((c: Concept) => {
-    const m = c.masteries[0];
-    if (!m) return false;
-    const overallDue = calculateCurrentMastery(m.score, m.decayRate, m.lastReviewedAt) < getReviewThreshold(m.score);
-    const anySubDue = (m.subMasteries ?? []).some(
-      (s: { score: number; decayRate: number; lastReviewedAt: Date }) =>
-        calculateCurrentMastery(s.score, s.decayRate, s.lastReviewedAt) < getReviewThreshold(s.score)
-    );
-    return overallDue || anySubDue;
-  }).length;
+  type Mastery = Concept["masteries"][number];
+  type Sub = Mastery["subMasteries"][number];
 
-  // Count vocab words: new (no progress) vs due for review (has progress, time elapsed)
+  const allConcepts = curriculum.sections.flatMap((s: Section) => s.concepts);
   const now = new Date();
+
+  // Build round-queue data: per-concept facet state + roundsDue + synthesis flag.
+  // Mirrors /api/round-queue but inline since this is already a server component.
+  const roundQueueConcepts = allConcepts.map((concept: Concept) => {
+    const mastery: Mastery | undefined = concept.masteries[0];
+    const subByName = new Map<string, Sub>(
+      mastery?.subMasteries.map((s: Sub) => [s.name, s]) ?? []
+    );
+
+    const facets = concept.facets.map((name: string) => {
+      const sub = subByName.get(name);
+      const level: FacetLevel = sub?.level ?? FacetLevel.NOVICE;
+      const expertStage = sub?.expertStage ?? 0;
+      const nextDueAt = sub?.nextDueAt ?? new Date(0);
+      const due = nextDueAt <= now;
+      return { name, level, expertStage, due };
+    });
+
+    const isMastered = mastery?.mastered ?? false;
+    const cooldownActive =
+      mastery?.synthesisCooldownUntil != null &&
+      mastery.synthesisCooldownUntil > now;
+    const allFacetsAtExpert3 =
+      facets.length > 0 &&
+      facets.every((f) =>
+        isSynthesisReady({ level: f.level, expertStage: f.expertStage })
+      );
+    const synthesisReady = allFacetsAtExpert3 && !cooldownActive && !isMastered;
+    const roundsDue = isMastered ? 0 : facets.filter((f) => f.due).length;
+
+    return {
+      id: concept.id,
+      title: concept.title,
+      facets,
+      roundsDue,
+      mastered: isMastered,
+      synthesisReady,
+    };
+  });
+
+  const totalRoundsDue = roundQueueConcepts.reduce((sum, c) => sum + c.roundsDue, 0);
+  const unstartedCount = allConcepts.filter((c: Concept) => c.masteries.length === 0).length;
+
+  // Vocab counts (untouched by the rounds redesign)
   type VocabWord = Concept["vocabWords"][number];
   type VocabProgress = VocabWord["progress"][number];
   let vocabNewCount = 0;
@@ -70,7 +103,10 @@ export default async function SubjectPage({
   for (const c of allConcepts) {
     for (const v of c.vocabWords) {
       const p: VocabProgress | undefined = v.progress[0];
-      if (!p) { vocabNewCount++; continue; }
+      if (!p) {
+        vocabNewCount++;
+        continue;
+      }
       if (p.dismissed) continue;
       if (new Date(p.nextReviewAt) <= now) vocabDueCount++;
     }
@@ -93,29 +129,12 @@ export default async function SubjectPage({
       <SubjectQueueButtons
         slug={slug}
         unstartedCount={unstartedCount}
-        reviewCount={reviewCount}
+        reviewCount={totalRoundsDue}
         vocabNewCount={vocabNewCount}
         vocabDueCount={vocabDueCount}
       />
 
-      <DecayQueue
-        items={allConcepts
-          .filter((c: Concept) => c.masteries.length > 0)
-          .map((c: Concept) => ({
-            conceptId: c.id,
-            title: c.title,
-            score: c.masteries[0].score,
-            decayRate: c.masteries[0].decayRate,
-            lastReviewedAt: c.masteries[0].lastReviewedAt.toISOString(),
-            subMasteries: (c.masteries[0].subMasteries ?? []).map(
-              (s: { score: number; decayRate: number; lastReviewedAt: Date }) => ({
-                score: s.score,
-                decayRate: s.decayRate,
-                lastReviewedAt: s.lastReviewedAt.toISOString(),
-              })
-            ),
-          }))}
-      />
+      <RoundQueue concepts={roundQueueConcepts} totalRoundsDue={totalRoundsDue} />
 
       <div className="space-y-8">
         {curriculum.sections.map((section: Section) => (
@@ -124,36 +143,22 @@ export default async function SubjectPage({
               {section.name}
             </h2>
             <div className="space-y-2">
-              {section.concepts.map((concept: Concept) => {
-                const mastery = concept.masteries[0];
-                const currentScore = mastery
-                  ? calculateCurrentMastery(
-                      mastery.score,
-                      mastery.decayRate,
-                      mastery.lastReviewedAt
-                    )
-                  : null;
-
-                return (
-                  <Link
-                    key={concept.id}
-                    href={`/learn/${concept.id}`}
-                    className="flex items-center gap-4 bg-[var(--surface)] border border-[var(--border-retro)] rounded-lg px-4 py-3 hover:border-[var(--neon-cyan)]/30 hover:box-glow-cyan transition-all duration-300"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[var(--foreground)] text-sm font-medium truncate">
-                        {concept.title}
-                      </p>
-                      <p className="text-[var(--foreground)] opacity-30 text-xs truncate">
-                        {concept.description}
-                      </p>
-                    </div>
-                    <div className="w-24 shrink-0">
-                      <MasteryBar score={currentScore} />
-                    </div>
-                  </Link>
-                );
-              })}
+              {section.concepts.map((concept: Concept) => (
+                <Link
+                  key={concept.id}
+                  href={`/learn/${concept.id}`}
+                  className="flex items-center gap-4 bg-[var(--surface)] border border-[var(--border-retro)] rounded-lg px-4 py-3 hover:border-[var(--neon-cyan)]/30 hover:box-glow-cyan transition-all duration-300"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[var(--foreground)] text-sm font-medium truncate">
+                      {concept.title}
+                    </p>
+                    <p className="text-[var(--foreground)] opacity-30 text-xs truncate">
+                      {concept.description}
+                    </p>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         ))}
