@@ -155,6 +155,20 @@ After Claude resolves:
 
 `ChatInterface` stays around for Extra Credit mode (which still feels like a chat). Round mode is its own component.
 
+### Lesson visibility
+
+The user opts into study; they never get the lesson shoved at them inside a test context. Strict separation between **study** (lesson visible) and **test** (lesson hidden) — the WaniKani principle that makes levels feel earned.
+
+| Context | Show lesson? | Why |
+|---|---|---|
+| Round (any level) | ❌ Never | Showing material seconds before recall measures reading comprehension, not durable knowledge — poisons the well |
+| Synthesis round | ❌ Never | Higher stakes, same logic |
+| First encounter (before round 1 on a new concept) | ✅ Explicit "study" gate | Concept page detects no SubConceptMastery rows yet → shows "📖 Read the Lesson" → user reads → "Start round" begins round 1 |
+| Extra Credit (after a round resolves) | ✅ Available, expandable | Already tested; can dig in with the source open without affecting mastery |
+| Standalone "Read" button on the concept page | ✅ Always | User explicitly choosing to study, not in a test context |
+
+For Phase 3 implementation: the round UI must NOT carry over the legacy `ChatInterface` show-lesson expandable. That's an Extra-Credit-only affordance.
+
 ## Schema changes
 
 ### Replace `score` with `level` on `SubConceptMastery`
