@@ -1,13 +1,19 @@
 // Adaptive SRS engine for vocab drill.
 // Intervals are in hours. Stages are derived from interval, never stored.
+//
+// Stage names mirror the rounds engine (Novice → Apprentice → Journeyman →
+// Expert) so a single mental model carries across both surfaces. Bucket
+// thresholds match lesson interval boundaries from src/lib/levels.ts:
+// 4h NOVICE, 1d APPRENTICE, 4d JOURNEYMAN, 2w EXPERT/1, 90d EXPERT/3 (Burned).
+// The underlying SM-2 math is unchanged — this is display alignment only.
 
-export type VocabStage = "Apprentice" | "Journeyman" | "Adept" | "Master" | "Burned";
+export type VocabStage = "Novice" | "Apprentice" | "Journeyman" | "Expert" | "Burned";
 
 export const STAGE_COLORS: Record<VocabStage, string> = {
+  Novice: "var(--foreground)",
   Apprentice: "var(--neon-magenta)",
   Journeyman: "var(--neon-cyan)",
-  Adept: "var(--neon-green)",
-  Master: "var(--neon-purple)",
+  Expert: "var(--neon-purple)",
   Burned: "var(--extra-credit-accent)",
 };
 
@@ -55,9 +61,9 @@ export function processWrong(p: CurrentProgress): VocabProgressUpdate {
 }
 
 export function getStage(intervalHours: number): VocabStage {
-  if (intervalHours < 24) return "Apprentice";
-  if (intervalHours < 144) return "Journeyman";   // 1-6 days
-  if (intervalHours < 504) return "Adept";          // 7-21 days
-  if (intervalHours < 2160) return "Master";        // 22-90 days
-  return "Burned";
+  if (intervalHours < 24) return "Novice";          // < 1 day
+  if (intervalHours < 96) return "Apprentice";      // 1d to <4d
+  if (intervalHours < 336) return "Journeyman";     // 4d to <2w
+  if (intervalHours < 2160) return "Expert";        // 2w to <90d
+  return "Burned";                                  // ≥ 90d
 }

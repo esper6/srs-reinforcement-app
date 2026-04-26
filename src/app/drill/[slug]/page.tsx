@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { STAGE_COLORS, type VocabStage } from "@/lib/vocab-srs";
 
 interface VocabItem {
   vocabWordId: string;
@@ -21,14 +22,6 @@ interface GradeResult {
   stage: string;
   streak: number;
 }
-
-const STAGE_COLORS: Record<string, string> = {
-  Apprentice: "var(--neon-magenta)",
-  Journeyman: "var(--neon-cyan)",
-  Adept: "var(--neon-green)",
-  Master: "var(--neon-purple)",
-  Burned: "var(--extra-credit-accent)",
-};
 
 // Shuffle array in place (Fisher-Yates)
 function shuffle<T>(arr: T[]): T[] {
@@ -156,7 +149,7 @@ export default function DrillPage() {
         correct: false,
         feedback: "Failed to grade. Try again.",
         definition: current.definition,
-        stage: "Apprentice",
+        stage: "Novice",
         streak: 0,
       });
       setPhase("feedback");
@@ -350,7 +343,7 @@ export default function DrillPage() {
   const current = getCurrentWord();
   if (!current) return null;
 
-  const stageColor = STAGE_COLORS[current.stage] ?? "var(--foreground)";
+  const stageColor = STAGE_COLORS[current.stage as VocabStage] ?? "var(--foreground)";
 
   // Progress calculation
   const progressNum = isLessonMode

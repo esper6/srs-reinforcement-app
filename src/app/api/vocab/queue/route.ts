@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
       term: v.term,
       definition: v.definition,
       conceptTitle: v.conceptTitle,
-      stage: "Apprentice" as const,
+      stage: "Novice" as const,
       streak: 0,
       isNew: true,
     }));

@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       correct: false,
       feedback: gradeResult.feedback,
       definition: vocabWord.definition,
-      stage: "Apprentice",
+      stage: "Novice",
       streak: 0,
     });
   }
