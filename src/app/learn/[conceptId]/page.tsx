@@ -467,10 +467,8 @@ export default function LearnPage() {
   }
 
   if (pageState.kind === "extra_credit") {
-    // Extra Credit reuses the legacy ChatInterface in extra-credit-only mode
-    // (no assessment phase, no scoring). Mode prop is irrelevant when
-    // initialExtraCredit is true — /api/chat short-circuits to the extra
-    // credit prompt builder.
+    // Extra Credit is the only thing /api/chat still serves — open conversation,
+    // no scoring, no assessment trigger. User exits via the BackBar above.
     return (
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {BackBar}
@@ -481,10 +479,7 @@ export default function LearnPage() {
           <ChatInterface
             conceptId={conceptId}
             conceptTitle={concept.title}
-            mode="REVIEW"
-            initialExtraCredit
             lessonMarkdown={concept.lessonMarkdown}
-            onComplete={navigateBack}
           />
         </div>
       </div>

@@ -5,7 +5,7 @@ interface SubjectCardProps {
   slug: string;
   description: string | null;
   conceptCount: number;
-  averageMastery: number | null;
+  masteredCount: number;
 }
 
 export default function SubjectCard({
@@ -13,20 +13,20 @@ export default function SubjectCard({
   slug,
   description,
   conceptCount,
-  averageMastery,
+  masteredCount,
 }: SubjectCardProps) {
-  const mastery = averageMastery ?? 0;
-  const masteryColor =
-    mastery >= 70
+  const pct = conceptCount > 0 ? (masteredCount / conceptCount) * 100 : 0;
+  const accent =
+    pct >= 70
       ? "text-[var(--neon-green)]"
-      : mastery >= 40
+      : pct >= 30
         ? "text-yellow-400"
         : "text-[var(--foreground)] opacity-60";
 
   const barClass =
-    mastery >= 70
+    pct >= 70
       ? "progress-glow-green"
-      : mastery >= 40
+      : pct >= 30
         ? "progress-glow-yellow"
         : "bg-[var(--border-retro)]";
 
@@ -41,17 +41,21 @@ export default function SubjectCard({
       <p className="text-[var(--foreground)] opacity-70 text-sm mb-4 line-clamp-2">{description}</p>
       <div className="flex items-center justify-between">
         <span className="text-[var(--foreground)] opacity-60 text-xs font-[family-name:var(--font-share-tech-mono)]">
-          {conceptCount} concepts
+          {conceptCount} concept{conceptCount === 1 ? "" : "s"}
         </span>
-        <span className={`text-sm font-medium font-[family-name:var(--font-share-tech-mono)] ${masteryColor}`}>
-          {averageMastery !== null ? `${Math.round(mastery)}%` : "Not started"}
+        <span className={`text-sm font-medium font-[family-name:var(--font-share-tech-mono)] ${accent}`}>
+          {masteredCount > 0
+            ? `${masteredCount} / ${conceptCount} mastered`
+            : conceptCount === 0
+              ? "—"
+              : "Not started"}
         </span>
       </div>
-      {averageMastery !== null && (
+      {conceptCount > 0 && (
         <div className="mt-3 h-1.5 bg-[var(--surface-light)] rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barClass}`}
-            style={{ width: `${Math.min(100, mastery)}%` }}
+            style={{ width: `${pct}%` }}
           />
         </div>
       )}

@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { calculateCurrentMastery } from "@/lib/mastery";
 import SubjectCard from "@/components/SubjectCard";
 
 export default async function DashboardPage() {
@@ -19,9 +18,7 @@ export default async function DashboardPage() {
         include: {
           concepts: {
             include: {
-              masteries: {
-                where: { userId },
-              },
+              masteries: { where: { userId }, select: { mastered: true } },
             },
           },
         },
@@ -32,34 +29,18 @@ export default async function DashboardPage() {
   type Curriculum = (typeof curricula)[number];
   type Section = Curriculum["sections"][number];
   type Concept = Section["concepts"][number];
-  const subjects: Array<{
-    name: string;
-    slug: string;
-    description: string | null;
-    conceptCount: number;
-    averageMastery: number | null;
-  }> = curricula.map((c: Curriculum) => {
+
+  const subjects = curricula.map((c: Curriculum) => {
     const concepts = c.sections.flatMap((s: Section) => s.concepts);
-    const masteries = concepts
-      .map((concept: Concept) => concept.masteries[0])
-      .filter(Boolean);
-
-    let averageMastery: number | null = null;
-    if (masteries.length > 0) {
-      const total = masteries.reduce(
-        (sum: number, m: { score: number; decayRate: number; lastReviewedAt: Date }) =>
-          sum + calculateCurrentMastery(m.score, m.decayRate, m.lastReviewedAt),
-        0
-      );
-      averageMastery = total / concepts.length;
-    }
-
+    const masteredCount = concepts.filter(
+      (concept: Concept) => concept.masteries[0]?.mastered === true
+    ).length;
     return {
       name: c.name,
       slug: c.slug,
       description: c.description,
       conceptCount: concepts.length,
-      averageMastery,
+      masteredCount,
     };
   });
 

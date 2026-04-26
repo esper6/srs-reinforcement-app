@@ -1,34 +1,32 @@
 "use client";
 
+// Extra-credit-only chat hook. The rounds-redesign moved scored interactions
+// to useRound and useSynthesis; this hook drives the post-round Extra Credit
+// surface where the user explores a concept with no scoring pressure.
+
 import { useState, useCallback, useRef } from "react";
-import { ChatMessageData, SubMasteryData } from "@/lib/types";
+import type { ChatMessageData } from "@/lib/types";
 
 interface UseChatOptions {
   conceptId: string;
-  mode: "ASSESS" | "LEARN" | "REVIEW";
-  // Start the chat already in extra-credit mode (no assessment phase). Used by
-  // the rounds-redesign flow when the user clicks "Extra Credit" after a round.
-  initialExtraCredit?: boolean;
-  onMasteryUpdate?: (score: number, decayRate: number, subMasteries?: SubMasteryData[]) => void;
 }
 
-export function useChat({ conceptId, mode, initialExtraCredit, onMasteryUpdate }: UseChatOptions) {
+export function useChat({ conceptId }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isExtraCredit, setIsExtraCredit] = useState(initialExtraCredit ?? false);
-  const [masteryResult, setMasteryResult] = useState<{ score: number; subMasteries: SubMasteryData[]; messageCount: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const extraCreditRef = useRef(initialExtraCredit ?? false);
 
   const sendMessage = useCallback(
     async (userMessage: string) => {
       setIsLoading(true);
+      setError(null);
 
-      // Add user message immediately
-      setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-
-      // Add empty assistant message that we'll stream into
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: userMessage },
+        { role: "assistant", content: "" },
+      ]);
 
       try {
         const res = await fetch("/api/chat", {
@@ -36,25 +34,21 @@ export function useChat({ conceptId, mode, initialExtraCredit, onMasteryUpdate }
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             conceptId,
-            mode,
             sessionId: sessionIdRef.current,
             userMessage,
-            extraCredit: extraCreditRef.current,
           }),
         });
 
         if (!res.ok) {
-          throw new Error("Chat request failed");
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? `Chat request failed (${res.status})`);
         }
 
-        // Get session ID from response header if available
         const newSessionId = res.headers.get("X-Session-Id");
-        if (newSessionId) {
-          sessionIdRef.current = newSessionId;
-        }
+        if (newSessionId) sessionIdRef.current = newSessionId;
 
         const reader = res.body?.getReader();
-        if (!reader) throw new Error("No reader");
+        if (!reader) throw new Error("Response had no readable body");
 
         const decoder = new TextDecoder();
         let fullText = "";
@@ -64,23 +58,17 @@ export function useChat({ conceptId, mode, initialExtraCredit, onMasteryUpdate }
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
+          for (const line of chunk.split("\n")) {
             if (line.startsWith("data: ") && line !== "data: [DONE]") {
               try {
                 const data = JSON.parse(line.slice(6));
                 if (data.text) {
                   fullText += data.text;
-                  // Strip mastery and sub-mastery tags for display
-                  const displayText = fullText
-                    .replace(/<mastery\s+score="\d+"\s+decay_rate="[\d.]+"\s*\/>/g, "")
-                    .replace(/<sub_mastery\s+name="[^"]+"\s+score="\d+"\s+decay_rate="[\d.]+"\s*\/>/g, "");
                   setMessages((prev) => {
                     const updated = [...prev];
                     updated[updated.length - 1] = {
                       role: "assistant",
-                      content: displayText.trim(),
+                      content: fullText.trim(),
                     };
                     return updated;
                   });
@@ -91,56 +79,14 @@ export function useChat({ conceptId, mode, initialExtraCredit, onMasteryUpdate }
             }
           }
         }
-
-        // Check for sub-mastery tags first, then fall back to legacy mastery tag
-        const subMasteryRegex = /<sub_mastery\s+name="([^"]+)"\s+score="(\d+)"\s+decay_rate="([\d.]+)"\s*\/>/g;
-        const subMasteries: SubMasteryData[] = [];
-        let subMatch;
-        while ((subMatch = subMasteryRegex.exec(fullText)) !== null) {
-          subMasteries.push({
-            name: subMatch[1],
-            score: parseInt(subMatch[2]),
-            decayRate: parseFloat(subMatch[3]),
-          });
-        }
-
-        if (subMasteries.length > 0 && onMasteryUpdate) {
-          const overallScore = Math.round(
-            subMasteries.reduce((sum, s) => sum + s.score, 0) / subMasteries.length
-          );
-          const overallDecay =
-            subMasteries.reduce((sum, s) => sum + s.decayRate, 0) / subMasteries.length;
-          onMasteryUpdate(overallScore, overallDecay, subMasteries);
-          // Capture how many messages exist at scoring time (used to split assessment vs extra credit in UI)
-          setMessages((prev) => {
-            setMasteryResult({ score: overallScore, subMasteries, messageCount: prev.length });
-            return prev;
-          });
-          // Enter extra credit mode after scores are emitted
-          extraCreditRef.current = true;
-          setIsExtraCredit(true);
-        } else if (!extraCreditRef.current) {
-          // Legacy fallback (only if not already in extra credit)
-          const masteryMatch = fullText.match(
-            /<mastery\s+score="(\d+)"\s+decay_rate="([\d.]+)"\s*\/>/
-          );
-          if (masteryMatch && onMasteryUpdate) {
-            const legacyScore = parseInt(masteryMatch[1]);
-            onMasteryUpdate(legacyScore, parseFloat(masteryMatch[2]));
-            setMessages((prev) => {
-              setMasteryResult({ score: legacyScore, subMasteries: [], messageCount: prev.length });
-              return prev;
-            });
-            extraCreditRef.current = true;
-            setIsExtraCredit(true);
-          }
-        }
-      } catch (error) {
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Something went wrong";
+        setError(message);
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
             role: "assistant",
-            content: "Sorry, something went wrong. Please try again.",
+            content: `⚠ ${message}`,
           };
           return updated;
         });
@@ -148,13 +94,14 @@ export function useChat({ conceptId, mode, initialExtraCredit, onMasteryUpdate }
         setIsLoading(false);
       }
     },
-    [conceptId, mode, onMasteryUpdate]
+    [conceptId]
   );
 
   const reset = useCallback(() => {
     setMessages([]);
+    setError(null);
     sessionIdRef.current = null;
   }, []);
 
-  return { messages, isLoading, isExtraCredit, masteryResult, sendMessage, reset };
+  return { messages, isLoading, error, sendMessage, reset };
 }

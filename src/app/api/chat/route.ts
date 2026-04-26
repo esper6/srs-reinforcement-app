@@ -1,16 +1,15 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { parseMasteryTag, parseSubMasteryTags } from "@/lib/claude";
 import { streamChatResponse, LlmConfig } from "@/lib/llm";
 import { decrypt } from "@/lib/crypto";
-import {
-  buildAssessPrompt,
-  buildLearnPrompt,
-  buildReviewPrompt,
-  buildExtraCreditPrompt,
-} from "@/lib/prompts";
+import { buildExtraCreditPrompt } from "@/lib/prompts";
 import { NextRequest, NextResponse } from "next/server";
+
+// Extra-credit-only chat endpoint. The rounds redesign moved scored interactions
+// to /api/round and /api/synthesis; this route exists solely to power the
+// post-round Extra Credit conversation surface, where the user can dig into a
+// concept without affecting mastery.
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -22,18 +21,16 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { conceptId, mode, sessionId, userMessage, extraCredit } = await req.json();
+  const { conceptId, sessionId, userMessage } = await req.json();
 
-  if (!conceptId || !mode || !userMessage) {
+  if (!conceptId || !userMessage) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
-
-  // --- Input validation & rate limiting ---
   if (typeof userMessage !== "string" || userMessage.length > 5000) {
     return NextResponse.json({ error: "Message too long (max 5000 chars)" }, { status: 400 });
   }
 
-  // Rate limit: max 30 messages per 5 minutes per user
+  // Rate limit: max 30 user messages per 5 min across all sessions
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
   const recentCount = await prisma.chatMessage.count({
     where: {
@@ -49,121 +46,53 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // --- Prompt injection defenses ---
-  // Strip any mastery/sub-mastery tags from user input so they can't inject fake scores
+  // Strip any tag-shaped content from user input — Extra Credit doesn't score,
+  // but we still defend against injected fake tags drifting into other contexts.
   const sanitizedMessage = userMessage
+    .replace(/<\/?round_result[^>]*\/?>/gi, "")
+    .replace(/<\/?synthesis_result[^>]*\/?>/gi, "")
     .replace(/<\/?sub_mastery[^>]*\/?>/gi, "")
     .replace(/<\/?mastery[^>]*\/?>/gi, "");
 
-  // Load concept with section and curriculum
   const concept = await prisma.concept.findUnique({
     where: { id: conceptId },
-    include: { section: { include: { curriculum: true } } },
+    select: { id: true, title: true, lessonMarkdown: true },
   });
-
   if (!concept) {
     return NextResponse.json({ error: "Concept not found" }, { status: 404 });
   }
 
-  // Get or create chat session
   let chatSession;
   if (sessionId) {
     chatSession = await prisma.chatSession.findUnique({
       where: { id: sessionId },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
-  }
-
-  if (!chatSession) {
+    if (!chatSession || chatSession.userId !== userId || chatSession.mode !== "EXTRA_CREDIT") {
+      return NextResponse.json({ error: "Invalid session" }, { status: 400 });
+    }
+  } else {
     chatSession = await prisma.chatSession.create({
-      data: {
-        userId,
-        conceptId,
-        mode: mode as "ASSESS" | "LEARN" | "REVIEW",
-      },
+      data: { userId, conceptId, mode: "EXTRA_CREDIT" },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
   }
 
-  // Save user message (sanitized)
   await prisma.chatMessage.create({
-    data: {
-      chatSessionId: chatSession.id,
-      role: "user",
-      content: sanitizedMessage,
-    },
+    data: { chatSessionId: chatSession.id, role: "user", content: sanitizedMessage },
   });
 
-  // Build conversation history
   const messages = chatSession.messages.map((m: { role: string; content: string }) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
   messages.push({ role: "user", content: sanitizedMessage });
 
-  // Build system prompt based on mode
-  // Count exchanges (pairs of user+assistant messages, excluding the initial trigger)
-  const exchangeCount = Math.floor(messages.length / 2);
+  const systemPrompt = buildExtraCreditPrompt(concept.title, concept.lessonMarkdown);
 
-  let systemPrompt: string;
-
-  if (extraCredit) {
-    // Extra credit mode: no scoring, just open conversation
-    systemPrompt = buildExtraCreditPrompt(concept.title, concept.lessonMarkdown);
-  } else {
-    const mastery = await prisma.conceptMastery.findUnique({
-      where: { userId_conceptId: { userId, conceptId } },
-      include: { subMasteries: true },
-    });
-
-    if (mode === "ASSESS") {
-      const existingFacets = mastery?.subMasteries?.map(
-        (s: { name: string; score: number }) => s.name
-      );
-      systemPrompt = buildAssessPrompt(concept.title, concept.lessonMarkdown, exchangeCount, existingFacets);
-    } else if (mode === "LEARN") {
-      const weakAreas = mastery?.subMasteries
-        ?.sort((a: { score: number }, b: { score: number }) => a.score - b.score)
-        .slice(0, 3)
-        .map((s: { name: string; score: number }) => `${s.name} (${Math.round(s.score)}%)`)
-        .join(", ") ?? "";
-      const existingFacets = mastery?.subMasteries?.map(
-        (s: { name: string; score: number }) => s.name
-      );
-      systemPrompt = buildLearnPrompt(
-        concept.title,
-        concept.lessonMarkdown,
-        mastery?.score ?? 0,
-        weakAreas,
-        exchangeCount,
-        existingFacets
-      );
-    } else {
-      const daysSince = mastery
-        ? (Date.now() - mastery.lastReviewedAt.getTime()) / (1000 * 60 * 60 * 24)
-        : 0;
-      const subMasteries = mastery?.subMasteries?.map((s: { name: string; score: number }) => ({
-        name: s.name,
-        score: Math.round(s.score),
-      }));
-      systemPrompt = buildReviewPrompt(
-        concept.title,
-        concept.lessonMarkdown,
-        mastery?.score ?? 0,
-        daysSince,
-        subMasteries,
-        exchangeCount
-      );
-    }
-  }
-
-  // Resolve user's LLM provider + API key
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: {
-      preferredProvider: true,
-      apiKeys: true,
-    },
+    select: { preferredProvider: true, apiKeys: true },
   });
 
   let llmConfig: LlmConfig;
@@ -188,16 +117,10 @@ export async function POST(req: NextRequest) {
     llmConfig = { provider: user.preferredProvider, apiKey: decrypt(providerKey.encryptedKey) };
   }
 
-  // Stream the response
   const stream = await streamChatResponse(systemPrompt, messages, llmConfig);
-
-  // We need to tee the stream: one for the client, one to collect the full response
   const [clientStream, collectorStream] = stream.tee();
 
-  // Collect full response in background for DB storage
-  collectAndSave(collectorStream, chatSession.id, userId, conceptId, !!extraCredit).catch(
-    console.error
-  );
+  collectAndSaveExtraCredit(collectorStream, chatSession.id).catch(console.error);
 
   return new Response(clientStream, {
     headers: {
@@ -209,12 +132,9 @@ export async function POST(req: NextRequest) {
   });
 }
 
-async function collectAndSave(
+async function collectAndSaveExtraCredit(
   stream: ReadableStream<Uint8Array>,
-  chatSessionId: string,
-  userId: string,
-  conceptId: string,
-  extraCredit: boolean = false
+  chatSessionId: string
 ) {
   const decoder = new TextDecoder();
   let fullText = "";
@@ -223,10 +143,8 @@ async function collectAndSave(
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-
     const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split("\n");
-    for (const line of lines) {
+    for (const line of chunk.split("\n")) {
       if (line.startsWith("data: ") && line !== "data: [DONE]") {
         try {
           const data = JSON.parse(line.slice(6));
@@ -238,102 +156,7 @@ async function collectAndSave(
     }
   }
 
-  // Save assistant message
   await prisma.chatMessage.create({
-    data: {
-      chatSessionId,
-      role: "assistant",
-      content: fullText,
-    },
+    data: { chatSessionId, role: "assistant", content: fullText },
   });
-
-  // Skip mastery updates in extra credit mode
-  if (extraCredit) return;
-
-  // Parse sub-mastery tags (new format) or fall back to legacy mastery tag
-  const rawSubMasteries = parseSubMasteryTags(fullText);
-  const legacyMastery = parseMasteryTag(fullText);
-
-  // --- Server-side score validation ---
-  // Clamp scores to valid range, cap facet count, validate decay rates
-  const subMasteries = rawSubMasteries
-    .slice(0, 8) // Max 8 facets (spec says 3-5, leave headroom)
-    .map((s) => ({
-      name: s.name.slice(0, 100), // Cap facet name length
-      score: Math.max(0, Math.min(100, Math.round(s.score))),
-      decayRate: Math.max(0.03, Math.min(0.3, s.decayRate)),
-    }));
-
-  if (subMasteries.length > 0) {
-    // Compute overall score as average of sub-mastery scores
-    const overallScore = Math.round(
-      subMasteries.reduce((sum, s) => sum + s.score, 0) / subMasteries.length
-    );
-    // Overall decay rate as average weighted toward faster decay
-    const overallDecay =
-      subMasteries.reduce((sum, s) => sum + s.decayRate, 0) / subMasteries.length;
-
-    const conceptMastery = await prisma.conceptMastery.upsert({
-      where: { userId_conceptId: { userId, conceptId } },
-      update: {
-        score: overallScore,
-        decayRate: overallDecay,
-        lastReviewedAt: new Date(),
-        reviewCount: { increment: 1 },
-      },
-      create: {
-        userId,
-        conceptId,
-        score: overallScore,
-        decayRate: overallDecay,
-        lastReviewedAt: new Date(),
-        reviewCount: 1,
-      },
-    });
-
-    // Upsert each sub-mastery
-    for (const sub of subMasteries) {
-      await prisma.subConceptMastery.upsert({
-        where: {
-          conceptMasteryId_name: {
-            conceptMasteryId: conceptMastery.id,
-            name: sub.name,
-          },
-        },
-        update: {
-          score: sub.score,
-          decayRate: sub.decayRate,
-          lastReviewedAt: new Date(),
-        },
-        create: {
-          conceptMasteryId: conceptMastery.id,
-          name: sub.name,
-          score: sub.score,
-          decayRate: sub.decayRate,
-          lastReviewedAt: new Date(),
-        },
-      });
-    }
-  } else if (legacyMastery) {
-    // Fallback for legacy single mastery tag (clamped)
-    const clampedScore = Math.max(0, Math.min(100, Math.round(legacyMastery.score)));
-    const clampedDecay = Math.max(0.03, Math.min(0.3, legacyMastery.decayRate));
-    await prisma.conceptMastery.upsert({
-      where: { userId_conceptId: { userId, conceptId } },
-      update: {
-        score: clampedScore,
-        decayRate: clampedDecay,
-        lastReviewedAt: new Date(),
-        reviewCount: { increment: 1 },
-      },
-      create: {
-        userId,
-        conceptId,
-        score: clampedScore,
-        decayRate: clampedDecay,
-        lastReviewedAt: new Date(),
-        reviewCount: 1,
-      },
-    });
-  }
 }
