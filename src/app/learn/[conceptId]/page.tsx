@@ -229,6 +229,20 @@ export default function LearnPage() {
     setPageState({ kind: "round", facet: weakest });
   }, [concept]);
 
+  // User chose a different due facet from the picker. Replace the current
+  // round's facet — the key on RoundView forces a fresh useRound instance,
+  // so the in-flight session for the original facet is just orphaned.
+  const handleSwitchFacet = useCallback(
+    (facetName: string) => {
+      if (!concept) return;
+      const facets = resolveFacets(concept, new Date());
+      const picked = facets.find((f) => f.name === facetName);
+      if (!picked) return;
+      setPageState({ kind: "round", facet: picked });
+    },
+    [concept]
+  );
+
   const handleSynthesisResolve = useCallback((result: SynthesisResult) => {
     setPageState({ kind: "synthesis_result", result });
   }, []);
@@ -428,16 +442,23 @@ export default function LearnPage() {
   }
 
   if (pageState.kind === "round") {
+    const allFacets = resolveFacets(concept, new Date());
+    const alternativeFacets = allFacets
+      .filter((f) => f.due && f.name !== pageState.facet.name)
+      .map((f) => ({ name: f.name, level: f.level, expertStage: f.expertStage }));
     return (
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {BackBar}
         <div className="flex-1 flex flex-col min-h-0">
           <RoundView
+            key={pageState.facet.name}
             conceptId={conceptId}
             conceptTitle={concept.title}
             facetName={pageState.facet.name}
             currentLevel={pageState.facet.level}
             currentExpertStage={pageState.facet.expertStage}
+            alternativeFacets={alternativeFacets}
+            onSwitchFacet={handleSwitchFacet}
             onResolve={handleRoundResolve}
           />
         </div>

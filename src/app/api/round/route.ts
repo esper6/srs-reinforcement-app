@@ -132,7 +132,8 @@ export async function POST(req: NextRequest) {
     }
     activeFacetName = requestedFacetName;
   } else {
-    // New round: pick the weakest overdue facet
+    // New round: build facet states, then either honor a user-requested facet
+    // (skip/re-pick affordance) or auto-pick the weakest overdue.
     type Sub = (typeof conceptMastery.subMasteries)[number];
     const subByName = new Map<string, Sub>(
       conceptMastery.subMasteries.map((s: Sub) => [s.name, s])
@@ -146,14 +147,34 @@ export async function POST(req: NextRequest) {
         nextDueAt: sub?.nextDueAt ?? new Date(),
       };
     });
-    const weakest = pickWeakestOverdue(facetStates, new Date());
-    if (!weakest) {
-      return NextResponse.json(
-        { error: "No facets are due for review on this concept right now." },
-        { status: 400 }
-      );
+
+    if (typeof requestedFacetName === "string" && requestedFacetName.length > 0) {
+      const requested = facetStates.find((f) => f.name === requestedFacetName);
+      if (!requested) {
+        return NextResponse.json(
+          { error: "facetName is not a facet of this concept" },
+          { status: 400 }
+        );
+      }
+      // Block drilling non-due facets — the SRS scheduler doesn't want them
+      // reviewed yet. Auto-pick path will already error if nothing is due.
+      if (requested.nextDueAt > new Date()) {
+        return NextResponse.json(
+          { error: "That facet isn't due for review yet" },
+          { status: 400 }
+        );
+      }
+      activeFacetName = requested.name;
+    } else {
+      const weakest = pickWeakestOverdue(facetStates, new Date());
+      if (!weakest) {
+        return NextResponse.json(
+          { error: "No facets are due for review on this concept right now." },
+          { status: 400 }
+        );
+      }
+      activeFacetName = weakest.name;
     }
-    activeFacetName = weakest.name;
   }
 
   // Get-or-create the ChatSession (mode=ROUND)

@@ -67,7 +67,19 @@ interface PickedFacet {
   expertStage: number;
 }
 
-function pickNext(concepts: ConceptInQueue[], now: Date): PickedFacet | null {
+interface FacetAlt {
+  name: string;
+  level: FacetLevel;
+  expertStage: number;
+}
+
+interface PickResult {
+  picked: PickedFacet;
+  // Other due facets on the same concept — fed to RoundView's switch picker.
+  alternatives: FacetAlt[];
+}
+
+function pickNext(concepts: ConceptInQueue[], now: Date): PickResult | null {
   type Candidate = PickedFacet & { nextDueAt: Date };
   const candidates: Candidate[] = [];
 
@@ -100,15 +112,36 @@ function pickNext(concepts: ConceptInQueue[], now: Date): PickedFacet | null {
     return a.nextDueAt.getTime() - b.nextDueAt.getTime();
   });
 
-  const { conceptId, conceptTitle, name, level, expertStage } = candidates[0];
-  return { conceptId, conceptTitle, name, level, expertStage };
+  const winner = candidates[0];
+  const picked: PickedFacet = {
+    conceptId: winner.conceptId,
+    conceptTitle: winner.conceptTitle,
+    name: winner.name,
+    level: winner.level,
+    expertStage: winner.expertStage,
+  };
+
+  // Switching is intra-concept only — alternatives are due facets on the
+  // same concept (excluding the one we just picked). Cross-concept switching
+  // is what "Next ▶" already does after a round resolves.
+  const winnerConcept = concepts.find((c) => c.id === winner.conceptId);
+  const alternatives: FacetAlt[] = (winnerConcept?.facets ?? [])
+    .filter((f) => new Date(f.nextDueAt) <= now && f.name !== winner.name)
+    .map((f) => ({ name: f.name, level: f.level, expertStage: f.expertStage }));
+
+  return { picked, alternatives };
 }
 
 type PageState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "empty"; subjectName: string }
-  | { kind: "round"; subjectName: string; current: PickedFacet }
+  | {
+      kind: "round";
+      subjectName: string;
+      current: PickedFacet;
+      alternatives: FacetAlt[];
+    }
   | {
       kind: "result";
       subjectName: string;
@@ -141,7 +174,12 @@ export default function BurnPage() {
           setPageState({ kind: "empty", subjectName });
           return;
         }
-        setPageState({ kind: "round", subjectName, current: next });
+        setPageState({
+          kind: "round",
+          subjectName,
+          current: next.picked,
+          alternatives: next.alternatives,
+        });
       })
       .catch(() => {
         if (!cancelled) setPageState({ kind: "error", message: "Failed to load queue" });
@@ -171,6 +209,36 @@ export default function BurnPage() {
   const handleNextRound = useCallback(() => {
     setPageState({ kind: "loading" });
     setRefreshTick((t) => t + 1);
+  }, []);
+
+  // Intra-concept facet swap. The chosen alternative is promoted to current
+  // and the previous current drops back into the alternatives pool. Cross-
+  // concept switching isn't offered here — that's what "Next ▶" is for after
+  // a round resolves.
+  const handleSwitchFacet = useCallback((facetName: string) => {
+    setPageState((prev) => {
+      if (prev.kind !== "round") return prev;
+      const newCurrent = prev.alternatives.find((a) => a.name === facetName);
+      if (!newCurrent) return prev;
+      const demotedPrev: FacetAlt = {
+        name: prev.current.name,
+        level: prev.current.level,
+        expertStage: prev.current.expertStage,
+      };
+      return {
+        ...prev,
+        current: {
+          conceptId: prev.current.conceptId,
+          conceptTitle: prev.current.conceptTitle,
+          name: newCurrent.name,
+          level: newCurrent.level,
+          expertStage: newCurrent.expertStage,
+        },
+        alternatives: prev.alternatives
+          .filter((a) => a.name !== facetName)
+          .concat(demotedPrev),
+      };
+    });
   }, []);
 
   const BackBar = (
@@ -247,6 +315,8 @@ export default function BurnPage() {
             facetName={pageState.current.name}
             currentLevel={pageState.current.level}
             currentExpertStage={pageState.current.expertStage}
+            alternativeFacets={pageState.alternatives}
+            onSwitchFacet={handleSwitchFacet}
             onResolve={handleRoundResolve}
           />
         </div>

@@ -11,6 +11,11 @@ export interface RoundResult {
 
 interface UseRoundOptions {
   conceptId: string;
+  // Caller-chosen facet to send on the first /api/round call. The server
+  // validates it (must be in concept.facets and currently due) and uses it
+  // instead of running its own pickWeakestOverdue. Subsequent in-session
+  // calls use whatever facet the server confirmed via X-Facet-Name header.
+  initialFacetName?: string;
 }
 
 // Strip the round/synthesis tags from the streaming display text. Tags are
@@ -23,14 +28,14 @@ function stripTagsForDisplay(text: string): string {
   return text.replace(ROUND_TAG_RX, "").replace(SYNTHESIS_TAG_RX, "").trim();
 }
 
-export function useRound({ conceptId }: UseRoundOptions) {
+export function useRound({ conceptId, initialFacetName }: UseRoundOptions) {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [facetName, setFacetName] = useState<string | null>(null);
+  const [facetName, setFacetName] = useState<string | null>(initialFacetName ?? null);
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const facetNameRef = useRef<string | null>(null);
+  const facetNameRef = useRef<string | null>(initialFacetName ?? null);
 
   const sendMessage = useCallback(
     async (userMessage: string) => {

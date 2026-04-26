@@ -5,6 +5,12 @@ import { FacetLevel } from "@prisma/client";
 import { useRound, type RoundResult } from "@/hooks/useRound";
 import MessageBubble from "./MessageBubble";
 
+interface FacetAlternative {
+  name: string;
+  level: FacetLevel;
+  expertStage: number;
+}
+
 interface RoundViewProps {
   conceptId: string;
   conceptTitle: string;
@@ -12,6 +18,13 @@ interface RoundViewProps {
   currentLevel: FacetLevel;
   currentExpertStage: number;
   onResolve: (result: RoundResult) => void;
+  // Other due facets the user can switch to before engaging with the round.
+  // Empty / omitted → no Switch button rendered.
+  alternativeFacets?: FacetAlternative[];
+  // Called when user picks a different facet from the picker. Parent should
+  // update its state and rely on a `key` prop change to force RoundView to
+  // remount with the new facet (so useRound resets its session/messages).
+  onSwitchFacet?: (facetName: string) => void;
 }
 
 const LEVEL_LABEL: Record<FacetLevel, string> = {
@@ -35,14 +48,26 @@ export default function RoundView({
   currentLevel,
   currentExpertStage,
   onResolve,
+  alternativeFacets = [],
+  onSwitchFacet,
 }: RoundViewProps) {
   const { messages, isLoading, error, sendMessage, roundResult } = useRound({
     conceptId,
+    initialFacetName: facetName,
   });
   const [input, setInput] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const startedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isResolved = roundResult != null;
+
+  // Switch is only safe before the user has actually engaged with the round.
+  // Once they've answered Claude's opener, switching would discard real work.
+  const hasUserResponded = messages.some(
+    (m) => m.role === "user" && m.content !== START_TRIGGER
+  );
+  const canSwitchFacet =
+    !hasUserResponded && !isResolved && !!onSwitchFacet && alternativeFacets.length > 0;
 
   // Auto-fire the [START ROUND] trigger exactly once on mount
   useEffect(() => {
@@ -90,7 +115,39 @@ export default function RoundView({
           <div className="text-xs text-[var(--foreground)]/50 font-[family-name:var(--font-share-tech-mono)]">
             {formatLevel(currentLevel, currentExpertStage)} ──→ ?
           </div>
+          {canSwitchFacet && (
+            <button
+              type="button"
+              onClick={() => setPickerOpen((v) => !v)}
+              className="ml-auto text-xs text-[var(--foreground)]/50 hover:text-[var(--neon-cyan)] font-[family-name:var(--font-share-tech-mono)] transition-colors"
+            >
+              {pickerOpen ? "Cancel ✕" : "Switch facet ▼"}
+            </button>
+          )}
         </div>
+        {canSwitchFacet && pickerOpen && (
+          <div className="mt-3 pt-3 border-t border-[var(--border-retro)] space-y-1">
+            <div className="text-[10px] text-[var(--foreground)]/40 font-[family-name:var(--font-share-tech-mono)] tracking-wider uppercase mb-1">
+              Other due facets
+            </div>
+            {alternativeFacets.map((alt) => (
+              <button
+                key={alt.name}
+                type="button"
+                onClick={() => {
+                  setPickerOpen(false);
+                  onSwitchFacet?.(alt.name);
+                }}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2 bg-[var(--surface)] border border-[var(--border-retro)] rounded text-sm text-[var(--foreground)]/80 hover:border-[var(--neon-cyan)]/40 hover:text-[var(--neon-cyan)] font-[family-name:var(--font-share-tech-mono)] transition-all text-left"
+              >
+                <span className="truncate">{alt.name}</span>
+                <span className="shrink-0 text-xs text-[var(--foreground)]/40">
+                  {formatLevel(alt.level, alt.expertStage)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Conversation */}
