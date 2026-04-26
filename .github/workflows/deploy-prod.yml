@@ -1,0 +1,17 @@
+name: Deploy Prod
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 20.242.97.67
+          username: greg-w
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: bash /opt/srs-app/deploy/deploy-prod.sh
