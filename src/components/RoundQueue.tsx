@@ -18,6 +18,10 @@ interface ConceptRoundState {
   roundsDue: number;
   mastered: boolean;
   synthesisReady: boolean;
+  // Whether the user has any SubConceptMastery rows for this concept.
+  // Lesson-gate concepts (started=false) need explicit lesson read first;
+  // they are not part of the burn pile and shouldn't display as "X rounds".
+  started: boolean;
 }
 
 interface RoundQueueProps {
@@ -103,14 +107,16 @@ export default function RoundQueue({ concepts, totalRoundsDue, slug }: RoundQueu
 
       <div className="space-y-2">
         {visible.map((c) => {
-          const isStartable = !c.mastered && c.roundsDue > 0;
+          const isStartable = !c.mastered && (c.roundsDue > 0 || !c.started);
           const status = c.mastered
             ? "Mastered ✓"
             : c.synthesisReady
               ? "Synthesis ready"
-              : c.roundsDue > 0
-                ? `${c.roundsDue} round${c.roundsDue === 1 ? "" : "s"}`
-                : "Up to date";
+              : !c.started
+                ? "Not started"
+                : c.roundsDue > 0
+                  ? `${c.roundsDue} round${c.roundsDue === 1 ? "" : "s"}`
+                  : "Up to date";
 
           return (
             <div

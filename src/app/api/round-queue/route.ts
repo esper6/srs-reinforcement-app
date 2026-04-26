@@ -88,12 +88,17 @@ export async function GET(req: NextRequest) {
       // Mastered concepts contribute 0 rounds. Empty-facets concepts also
       // contribute 0 (they need re-import — UI can show that state).
       const roundsDue = isMastered ? 0 : facets.filter((f) => f.due).length;
-      totalRoundsDue += roundsDue;
 
       // True iff the user has at least one SubConceptMastery row for this
       // concept — i.e., they've completed ≥1 round here. Burn-mode uses this
       // to skip lesson-gate concepts (those need explicit /learn entry first).
       const started = (mastery?.subMasteries.length ?? 0) > 0;
+
+      // The header count should match what Burn will actually drill. Lesson-
+      // gate concepts have facets with nextDueAt = epoch (technically "due")
+      // but aren't burnable — counting them inflates the header and creates
+      // the "100 rounds due → queue clear" disconnect.
+      if (started) totalRoundsDue += roundsDue;
 
       return {
         id: concept.id,

@@ -85,6 +85,9 @@ export default async function SubjectPage({
       );
     const synthesisReady = allFacetsAtExpert3 && !cooldownActive && !isMastered;
     const roundsDue = isMastered ? 0 : facets.filter((f) => f.due).length;
+    // Started = at least one SubConceptMastery row exists for this concept.
+    // Lesson-gate concepts (no rows yet) are visible but not yet burnable.
+    const started = (mastery?.subMasteries.length ?? 0) > 0;
 
     return {
       id: concept.id,
@@ -94,10 +97,16 @@ export default async function SubjectPage({
       mastered: isMastered,
       masteredAt: mastery?.masteredAt ?? null,
       synthesisReady,
+      started,
     };
   });
 
-  const totalRoundsDue = roundQueueConcepts.reduce((sum, c) => sum + c.roundsDue, 0);
+  // Header count must match what Burn actually drains — lesson-gate concepts
+  // have epoch nextDueAt's that read as "due" but aren't burnable.
+  const totalRoundsDue = roundQueueConcepts.reduce(
+    (sum, c) => (c.started ? sum + c.roundsDue : sum),
+    0
+  );
   const burnedConcepts = roundQueueConcepts
     .filter((c) => c.mastered)
     .map((c) => ({ id: c.id, title: c.title, masteredAt: c.masteredAt }));
