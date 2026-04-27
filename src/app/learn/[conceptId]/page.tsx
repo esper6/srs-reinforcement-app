@@ -9,6 +9,7 @@ import RoundResultView from "@/components/RoundResultView";
 import SynthesisView from "@/components/SynthesisView";
 import SynthesisResultView from "@/components/SynthesisResultView";
 import ChatInterface from "@/components/ChatInterface";
+import RoundHistoryViewer from "@/components/RoundHistoryViewer";
 import { isSynthesisReady } from "@/lib/levels";
 import type { RoundResult } from "@/hooks/useRound";
 import type { SynthesisResult } from "@/hooks/useSynthesis";
@@ -299,7 +300,7 @@ export default function LearnPage() {
     return (
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {BackBar}
-        <div className="flex-1 flex items-center justify-center text-center px-6">
+        <div className="flex flex-col items-center justify-center text-center px-6 py-16">
           <div className="space-y-3">
             <div className="text-5xl text-[var(--neon-green)]">✓</div>
             <div className="text-[var(--neon-cyan)] font-[family-name:var(--font-share-tech-mono)] tracking-widest text-sm">
@@ -309,6 +310,7 @@ export default function LearnPage() {
             <div className="text-xs text-[var(--foreground)]/40">No further rounds.</div>
           </div>
         </div>
+        <RoundHistoryViewer conceptId={conceptId} />
       </div>
     );
   }
@@ -317,7 +319,7 @@ export default function LearnPage() {
     return (
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {BackBar}
-        <div className="flex-1 flex items-center justify-center text-center px-6">
+        <div className="flex flex-col items-center justify-center text-center px-6 py-16">
           <div className="space-y-3">
             <div className="text-[var(--neon-cyan)] font-[family-name:var(--font-share-tech-mono)]">
               {concept.title}
@@ -327,6 +329,7 @@ export default function LearnPage() {
             </div>
           </div>
         </div>
+        <RoundHistoryViewer conceptId={conceptId} />
       </div>
     );
   }
@@ -335,7 +338,7 @@ export default function LearnPage() {
     return (
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {BackBar}
-        <div className="flex-1 flex items-center justify-center px-6 py-8">
+        <div className="flex items-center justify-center px-6 py-12">
           <div className="max-w-md w-full bg-[var(--surface)] border border-[var(--neon-magenta)]/40 rounded-lg p-6 space-y-5 text-center">
             <div className="text-xs text-[var(--neon-magenta)]/80 font-[family-name:var(--font-share-tech-mono)] tracking-[0.4em]">
               ⚛ READY FOR SYNTHESIS
@@ -367,6 +370,7 @@ export default function LearnPage() {
             </div>
           </div>
         </div>
+        <RoundHistoryViewer conceptId={conceptId} />
       </div>
     );
   }
@@ -375,7 +379,7 @@ export default function LearnPage() {
     return (
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {BackBar}
-        <div className="flex-1 flex items-center justify-center text-center px-6">
+        <div className="flex flex-col items-center justify-center text-center px-6 py-16">
           <div className="space-y-3 max-w-md">
             <div className="text-xs text-[var(--neon-magenta)]/70 font-[family-name:var(--font-share-tech-mono)] tracking-widest">
               SYNTHESIS COOLDOWN
@@ -395,6 +399,7 @@ export default function LearnPage() {
             </div>
           </div>
         </div>
+        <RoundHistoryViewer conceptId={conceptId} />
       </div>
     );
   }
