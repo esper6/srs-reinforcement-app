@@ -1,8 +1,10 @@
 # MEMORY.dump — Architecture Guide
 
 > **Rounds Redesign: Live**
-> The curriculum/Socratic side runs on a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). Bounded 1-3 question rounds, binary advance/drop, capstone synthesis. Live at `/learn/[conceptId]` and `/subject/[slug]`. Vocab SRS is untouched.
+> The curriculum/Socratic side runs on a WaniKani-style **rounds model** with discrete facet levels (Novice → Apprentice → Journeyman → Expert → Mastered). Bounded 1-3 question rounds, binary advance/drop, capstone synthesis. Live at `/learn/[conceptId]`, `/subject/[slug]`, and `/burn/[slug]` (cross-concept burn pile).
 > See **`docs/rounds-redesign.md`** for design rationale and history.
+>
+> Vocab SRS is a separate engine that shares the stage vocabulary (Novice → Apprentice → Journeyman → Expert → Burned) for UI consistency. The math underneath is still SM-2 ease-factor; the alignment is purely cosmetic — see `src/lib/vocab-srs.ts`.
 >
 > The legacy assessment-mode code (`buildAssessPrompt`/etc., `parseMasteryTag`/etc., `mastery.ts`, DecayQueue/MasteryBar/SubMasteryBreakdown components, `/review` page and route, score/decayRate DB columns) was removed in Phase 6 cleanup. `ASSESS`/`LEARN`/`REVIEW` enum values still sit in the `SessionMode` Postgres type — they're inert (no code references, no rows have them) and dropping them would require recreating the enum, not worth the migration churn.
 
@@ -24,7 +26,19 @@ An AI-powered spaced repetition app for learning. Users authenticate with Google
 
 **Intervals** — Novice 4h · Apprentice 1d · Journeyman 4d · Expert stage 1 = 2w · stage 2 = 1mo · stage 3 = 3mo · Mastered = never. Defined in `src/lib/levels.ts`.
 
-**Round queue** — `/subject/[slug]` renders the per-concept pip chart driven by current facet states. Each concept shows N pips per facet (filled = level rank), magenta highlight on overdue, "Start ▶" / "Synthesis ▶" / "✓" action depending on state. Driven by inline Prisma query mirroring `/api/round-queue` (which exists for client consumers).
+**Round queue** — `/subject/[slug]` renders the per-concept pip chart driven by current facet states. Each concept shows N pips per facet (filled = level rank), magenta highlight on overdue, "Start ▶" / "Synthesis ▶" / "Not started" action depending on state. Driven by inline Prisma query mirroring `/api/round-queue` (which exists for the burn page). The header shows total burnable rounds due (only counts started concepts — lesson-gate concepts have epoch `nextDueAt`s that read as "due" but aren't drillable until the user has read the lesson and done their first round). When > 0, a "Burn through ▶" link surfaces.
+
+**Burn pile** — `/burn/[slug]` chains rounds across concepts in a single session, like WaniKani's review pile. Reuses `RoundView` and `/api/round`; client-side scheduler picks the weakest-overdue facet across eligible concepts (started, not mastered, not synthesis-ready, no cooldown), then re-fetches and re-picks after each result. Lesson-gate concepts and synthesis-ready concepts are excluded — those flows want explicit entry via `/learn/[id]`.
+
+**BurnedShelf** — Trophy view on the subject page below the round queue. Lists concepts that cleared synthesis, sorted most-recent-first with relative timestamps. Click-through goes to `/learn/[id]` which renders the MASTERED terminal screen.
+
+**Per-user archive** — Any approved user can hide a curriculum from their own dashboard via the "Archive" button on the subject page. State lives on `UserCurriculumPref(userId, curriculumId, archivedAt?)` — never mutates the shared Curriculum row, so one user archiving doesn't affect anyone else. Dashboard hides archived by default with an "Archived (N)" toggle to flip into the archived-only view.
+
+**Subject deletion (admin)** — Destructive operation that cascades through every related table (sections, concepts, mastery, sessions, vocab progress). Admin-only because curricula are shared across users; one user shouldn't be able to wipe everyone's progress on a curriculum. Confirmation modal lists what will be deleted before the click.
+
+**Round history** — Per-concept "Recent Rounds" section on `/learn/[id]`, visible in non-active states (mastered, no_rounds_due, synthesis_gate, synthesis_cooldown). Pulls finished `ChatSession` rows and parses outcome + facet name from the result tag in the last assistant message. Click a row to expand the full transcript inline.
+
+**Skip / re-pick facet** — On the round screen header, before the user has sent any response, a "Switch facet ▼" affordance lets them pick a different due facet on the same concept. Once they engage, the button hides — switching mid-round would discard real work. The original `ChatSession` is left orphaned (auto-filtered from openings via the `finishedAt: { not: null }` query).
 
 **Extra Credit** — Open chat after a round, no scoring. Triggered by the round result screen; hits `/api/chat` (the only path that route still serves). Warm amber/brown palette to visually distinguish from the test surface.
 
@@ -36,27 +50,31 @@ An AI-powered spaced repetition app for learning. Users authenticate with Google
 - `src/lib/levels.ts` — Pure level/interval/advancement logic. `advance()`, `drop()`, `getInterval()`, `nextDueAt()`, `isSynthesisReady()`. Single source of truth for the staircase.
 - `src/lib/prompts.ts` — Round and synthesis prompt builders + Extra Credit prompt. Contains the `LEVEL_BARS` rubric Claude evaluates against.
 - `src/lib/claude.ts` — `parseRoundResult` / `parseSynthesisResult` and their strip helpers. Strict regex on outcome union.
-- `prisma/schema.prisma` — Data model. Note: `facets: String[]` on Concept; `level`/`expertStage`/`nextDueAt` on SubConceptMastery; `mastered`/`synthesisCooldownUntil` on ConceptMastery.
+- `prisma/schema.prisma` — Data model. Note: `facets: String[]` on Concept; `level`/`expertStage`/`nextDueAt` on SubConceptMastery; `mastered`/`synthesisCooldownUntil` on ConceptMastery; `UserCurriculumPref(userId, curriculumId, archivedAt?)` is the per-user archive flag.
 - `src/app/api/round/route.ts` — The meatiest backend route. Picks weakest overdue facet, builds prompt with up to 5 prior openers for variety, streams Claude, applies state transition.
 - `src/app/api/synthesis/route.ts` — Capstone round; eligibility + cooldown handling.
 - `src/app/learn/[conceptId]/page.tsx` — State machine over loading → lesson_gate → round → result → synthesis_gate → synthesis → mastered.
 
 ### Pages:
 - `src/app/page.tsx` — Landing / sign-in
-- `src/app/dashboard/page.tsx` — Subject cards grid showing "{N} / {M} mastered" per subject
-- `src/app/subject/[slug]/page.tsx` — Subject detail with `RoundQueue` pip chart + concept list
-- `src/app/learn/[conceptId]/page.tsx` — Per-concept entry point; orchestrates LessonGate / RoundView / RoundResultView / SynthesisView / SynthesisResultView / ChatInterface (extra credit)
-- `src/app/learn/queue/[slug]/page.tsx` — Chains through unstarted concepts in a subject
+- `src/app/dashboard/page.tsx` — Subject cards grid; per-user archive filter with `?archived=1` toggle
+- `src/app/subject/[slug]/page.tsx` — Subject detail with `RoundQueue` (active concepts + Burn link) and `BurnedShelf` (mastered concepts). Admin sees Archive + Delete affordances; non-admin sees Archive only.
+- `src/app/learn/[conceptId]/page.tsx` — Per-concept entry point; orchestrates LessonGate / RoundView / RoundResultView / SynthesisView / SynthesisResultView / ChatInterface (extra credit) / RoundHistoryViewer
+- `src/app/burn/[slug]/page.tsx` — Cross-concept burn pile; chains rounds across eligible concepts in one session
 - `src/app/import/page.tsx` — Paste-JSON curriculum import with validation and preview
-- `src/app/drill/[slug]/page.tsx` — Vocab SRS drills (separate system, untouched by rounds redesign)
+- `src/app/drill/[slug]/page.tsx` — Vocab SRS drills (separate system, stages renamed to align with rounds)
 
 ### Components:
-- `src/components/RoundView.tsx` — Live round UI with Continue button when resolved
-- `src/components/RoundResultView.tsx` — Post-round screen with Next Round / Extra Credit / Done
+- `src/components/RoundView.tsx` — Live round UI with Continue button when resolved. Hosts the "Switch facet ▼" affordance (visible pre-engagement only).
+- `src/components/RoundResultView.tsx` — Post-round screen with Next Round / Extra Credit / Done. `showExtraCredit` prop hides EC in burn mode.
 - `src/components/SynthesisView.tsx` — Capstone UI, magenta accent
 - `src/components/SynthesisResultView.tsx` — Mastered celebration on pass; cooldown screen on fail
 - `src/components/LessonGate.tsx` — First-encounter lesson view before round 1
-- `src/components/RoundQueue.tsx` — Subject-page pip chart
+- `src/components/RoundQueue.tsx` — Subject-page pip chart with "Burn through ▶" link in the header. Filters out mastered concepts (those live in BurnedShelf).
+- `src/components/BurnedShelf.tsx` — Trophy view of mastered concepts on the subject page
+- `src/components/ArchiveSubjectButton.tsx` — Per-user archive toggle on the subject page header
+- `src/components/DeleteSubjectButton.tsx` — Admin-only destructive delete with confirmation modal
+- `src/components/RoundHistoryViewer.tsx` — "Recent Rounds" panel on `/learn/[id]` non-active states; expandable transcripts
 - `src/components/ChatInterface.tsx` — Extra-credit-only chat surface
 - `src/components/MessageBubble.tsx` — Shared chat bubble for round/synthesis/extra credit views
 
@@ -66,13 +84,16 @@ An AI-powered spaced repetition app for learning. Users authenticate with Google
 - `src/hooks/useChat.ts` — Extra-credit transport against `/api/chat`
 
 ### API Routes:
-- `POST /api/round` — Core round endpoint; auto-picks facet, streams, applies advance/drop
+- `POST /api/round` — Core round endpoint. Auto-picks weakest overdue facet, or honors a client-provided `facetName` (validated as in-concept and currently due) for the skip/re-pick affordance. Streams Claude, applies advance/drop.
 - `POST /api/synthesis` — Capstone; eligibility check + pass/fail handling
-- `GET /api/round-queue?subject=slug` — Read feed for the round queue UI
+- `GET /api/round-queue?subject=slug` — Read feed driving the burn page. Returns per-concept `started` flag (≥1 SubConceptMastery row) and `totalRoundsDue` already filtered to started concepts.
 - `GET /api/concept/[conceptId]` — Concept info + the user's mastery state
+- `GET /api/concept/[conceptId]/history` — Up to 10 most-recent finished round/synthesis sessions with parsed outcomes and full transcripts
+- `DELETE /api/curriculum/[slug]` — Admin-only destructive delete (cascades through schema)
+- `PATCH /api/curriculum/[slug]` — Per-user archive/unarchive (any approved user). Body: `{ archived: boolean }`. Upserts a `UserCurriculumPref` row.
 - `POST /api/chat` — Extra-credit-only chat (no scoring)
 - `POST /api/import-curriculum` — Validates Facets contract; rejects malformed imports
-- `GET /api/assess-queue?subject=slug` — Unstarted concepts for `/learn/queue/[slug]`
+- `GET /api/health` — Unauthenticated liveness + DB ping. Used by deploy script's healthcheck loop.
 
 ### Auth & Routing:
 - `src/proxy.ts` — Route protection via session cookie check (NOT middleware.ts, which is deprecated in Next.js 16)
@@ -98,7 +119,7 @@ The relay server (`claude-relay/`) allows using an enterprise Claude license (vi
 
 **Architecture:**
 ```
-Vercel (Next.js) → HTTPS → Azure VM (relay) → claude --print → Claude (enterprise license)
+Next.js (on the same VM, port 3000/3001) → HTTP loopback → Claude Relay (port 8787) → claude --print → Claude (enterprise license)
 ```
 
 **Key files:**
@@ -133,8 +154,10 @@ Environment routing is plain `DATABASE_URL` pointing at the right database — n
 6. **Facet contract** — `Concept.facets[]` must match the `####` subheadings in `lessonMarkdown` character-for-character, in order. Enforced by `/api/import-curriculum`. The round prompt anchors scenarios to the facet's `####` subsection.
 7. **Round-result tag stripping** — Output text is shown to the user with `<round_result>` and `<synthesis_result>` tags stripped via regex. The full text (including tags) is what we parse server-side.
 8. **No tool use available** — The Claude relay wraps the CLI, not the API, so structured outputs come from regex over XML-shaped tags. See `memory/project_no_api_access.md`.
-9. **Import refuses to overwrite progress** — Returns 409 if slug exists with mastery data.
+9. **Import refuses to overwrite progress** — Returns 409 if slug exists with mastery data. Re-importing a curriculum with progress requires `Delete subject` first (admin-only), which wipes everything.
 10. **JSON schema is PascalCase** — Seed and import expect `Name`, `Slug`, `LessonMarkdown`, `Facets`, etc.
+11. **Hardened deploy script** — `deploy/deploy-{dev,prod}.sh` builds *before* migrating (so a build failure doesn't leave the service running stale code on a new schema), then polls `/api/health` post-restart with a 60s timeout. The GH action's exit code reflects whether the new process is actually serving requests, not just whether `systemctl restart` was requested. Note: changes to the deploy script itself take effect on the deploy *after* they're merged, since bash already loaded the previous version into memory at script start.
+12. **Round count vs burn pile** — `totalRoundsDue` shown on the subject page only counts `started` concepts (those with ≥1 `SubConceptMastery` row). Lesson-gate concepts have epoch `nextDueAt`s that read as "due" but aren't burnable; counting them inflates the header and creates a "100 rounds due → queue clear" disconnect.
 
 ## Dev Setup
 ```
