@@ -8,7 +8,7 @@ const HISTORY_LIMIT = 10;
 // Tag formats are duplicated from src/hooks/useRound.ts and src/lib/claude.ts.
 // Single source of truth would be nice but the regex is small and migrating
 // the parser into a shared module is its own task.
-const ROUND_TAG_RX = /<round_result\s+name="([^"]+)"\s+outcome="(advance|drop)"\s*\/>/;
+const ROUND_TAG_RX = /<round_result\s+name="([\s\S]*?)"\s+outcome="(advance|drop)"\s*\/>/;
 const SYNTHESIS_TAG_RX = /<synthesis_result\s+outcome="(pass|fail)"\s*\/>/;
 const ANY_RESULT_TAG_RX = /<(round_result|synthesis_result)[^/]*\/>/g;
 

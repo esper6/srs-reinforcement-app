@@ -12,7 +12,7 @@ interface UseSynthesisOptions {
   conceptId: string;
 }
 
-const ROUND_TAG_RX = /<round_result\s+name="[^"]+"\s+outcome="(advance|drop)"\s*\/>/g;
+const ROUND_TAG_RX = /<round_result\s+name="[\s\S]*?"\s+outcome="(advance|drop)"\s*\/>/g;
 const SYNTHESIS_TAG_RX = /<synthesis_result\s+outcome="(pass|fail)"\s*\/>/g;
 
 function stripTagsForDisplay(text: string): string {

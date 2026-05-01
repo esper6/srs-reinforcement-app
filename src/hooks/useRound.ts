@@ -21,7 +21,7 @@ interface UseRoundOptions {
 // Strip the round/synthesis tags from the streaming display text. Tags are
 // emitted at the very end of Claude's final message; we accumulate them in
 // fullText for parsing but never render them in the chat bubble.
-const ROUND_TAG_RX = /<round_result\s+name="[^"]+"\s+outcome="(advance|drop)"\s*\/>/g;
+const ROUND_TAG_RX = /<round_result\s+name="[\s\S]*?"\s+outcome="(advance|drop)"\s*\/>/g;
 const SYNTHESIS_TAG_RX = /<synthesis_result\s+outcome="(pass|fail)"\s*\/>/g;
 
 function stripTagsForDisplay(text: string): string {
@@ -110,7 +110,7 @@ export function useRound({ conceptId, initialFacetName }: UseRoundOptions) {
         // We set state but do NOT auto-transition — the component shows a Continue
         // button so the user can read Claude's final message before moving on.
         const match = fullText.match(
-          /<round_result\s+name="([^"]+)"\s+outcome="(advance|drop)"\s*\/>/
+          /<round_result\s+name="([\s\S]*?)"\s+outcome="(advance|drop)"\s*\/>/
         );
         if (match) {
           setRoundResult({
