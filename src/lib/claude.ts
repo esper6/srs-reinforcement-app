@@ -6,8 +6,11 @@ export type RoundOutcome = "advance" | "drop";
 export function parseRoundResult(
   text: string
 ): { name: string; outcome: RoundOutcome } | null {
+  // Lazy [\s\S]*? in the name capture so inner double-quotes (e.g. a facet
+  // named like `The "Contract" Mental Model`) don't break the match. The
+  // trailing `outcome="advance|drop"/>` is a strong enough sentinel.
   const match = text.match(
-    /<round_result\s+name="([^"]+)"\s+outcome="(advance|drop)"\s*\/>/
+    /<round_result\s+name="([\s\S]*?)"\s+outcome="(advance|drop)"\s*\/>/
   );
   if (!match) return null;
   return { name: match[1], outcome: match[2] as RoundOutcome };
@@ -15,7 +18,7 @@ export function parseRoundResult(
 
 export function stripRoundResultTag(text: string): string {
   return text
-    .replace(/<round_result\s+name="[^"]+"\s+outcome="(advance|drop)"\s*\/>/g, "")
+    .replace(/<round_result\s+name="[\s\S]*?"\s+outcome="(advance|drop)"\s*\/>/g, "")
     .trim();
 }
 
