@@ -69,8 +69,11 @@ export function useRound({ conceptId, initialFacetName }: UseRoundOptions) {
         // Capture session + facet from headers on first response
         const newSessionId = res.headers.get("X-Session-Id");
         if (newSessionId) sessionIdRef.current = newSessionId;
-        const newFacetName = res.headers.get("X-Facet-Name");
-        if (newFacetName) {
+        const newFacetNameEncoded = res.headers.get("X-Facet-Name");
+        if (newFacetNameEncoded) {
+          // Server URL-encodes facet name because HTTP headers are Latin-1
+          // and facet names can contain em-dashes / smart quotes.
+          const newFacetName = decodeURIComponent(newFacetNameEncoded);
           facetNameRef.current = newFacetName;
           setFacetName(newFacetName);
         }

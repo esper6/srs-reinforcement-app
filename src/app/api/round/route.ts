@@ -315,7 +315,10 @@ export async function POST(req: NextRequest) {
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
       "X-Session-Id": chatSession.id,
-      "X-Facet-Name": activeFacetName,
+      // Facet names can contain non-Latin-1 characters (e.g. em-dashes,
+      // smart quotes) which are illegal in HTTP header values. URL-encode
+      // here; the client (useRound.ts) decodes on read.
+      "X-Facet-Name": encodeURIComponent(activeFacetName),
     },
   });
 }
