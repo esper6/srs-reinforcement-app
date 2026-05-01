@@ -68,6 +68,38 @@ export default function ChatInterface({
         </span>
       </div>
 
+      {lessonMarkdown && (
+        <div
+          className="shrink-0 border-b"
+          style={{ borderColor: "var(--extra-credit-border)" }}
+        >
+          <button
+            onClick={() => setShowLesson((v) => !v)}
+            className="w-full px-4 py-2.5 text-left text-xs font-[family-name:var(--font-share-tech-mono)] flex items-center gap-2"
+            style={{ color: "var(--extra-credit-accent)", opacity: 0.7 }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                transform: showLesson ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 200ms",
+              }}
+            >
+              ▸
+            </span>
+            {showLesson ? "Hide Lesson" : "Show Lesson"}
+          </button>
+          {showLesson && (
+            <div
+              className="px-4 pb-4 lesson-markdown border-t pt-3 max-h-[45vh] overflow-y-auto"
+              style={{ borderTopColor: "var(--extra-credit-border)" }}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{lessonMarkdown}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((msg, i) => (
           <MessageBubble key={i} role={msg.role} content={msg.content} warm />
@@ -95,35 +127,6 @@ export default function ChatInterface({
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      {lessonMarkdown && (
-        <div className="border-t" style={{ borderColor: "var(--extra-credit-border)" }}>
-          <button
-            onClick={() => setShowLesson((v) => !v)}
-            className="w-full px-4 py-2.5 text-left text-xs font-[family-name:var(--font-share-tech-mono)] flex items-center gap-2"
-            style={{ color: "var(--extra-credit-accent)", opacity: 0.7 }}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                transform: showLesson ? "rotate(90deg)" : "rotate(0deg)",
-                transition: "transform 200ms",
-              }}
-            >
-              ▸
-            </span>
-            {showLesson ? "Hide Lesson" : "Show Lesson"}
-          </button>
-          {showLesson && (
-            <div
-              className="px-4 pb-4 lesson-markdown border-t pt-3"
-              style={{ borderTopColor: "var(--extra-credit-border)" }}
-            >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{lessonMarkdown}</ReactMarkdown>
-            </div>
-          )}
-        </div>
-      )}
 
       <form
         onSubmit={handleSubmit}

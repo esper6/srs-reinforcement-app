@@ -29,7 +29,7 @@ export default function MessageBubble({ role, content, warm }: MessageBubbleProp
   return (
     <div className="flex justify-start">
       <div
-        className="rounded-lg rounded-bl-sm px-4 py-3 max-w-[85%] text-sm prose prose-invert prose-sm max-w-none transition-colors duration-500"
+        className="rounded-lg rounded-bl-sm px-4 py-3 max-w-[85%] text-sm lesson-markdown transition-colors duration-500"
         style={warm
           ? { background: "var(--extra-credit-assistant-bg)", borderWidth: 1, borderStyle: "solid", borderColor: "var(--extra-credit-assistant-border)", color: "var(--extra-credit-text)" }
           : { background: "var(--surface-light)", borderWidth: 1, borderStyle: "solid", borderColor: "var(--border-retro)", color: "var(--foreground)" }
