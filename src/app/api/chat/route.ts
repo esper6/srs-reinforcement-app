@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 // concept without affecting mastery.
 
 export async function POST(req: NextRequest) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -130,6 +131,11 @@ export async function POST(req: NextRequest) {
       "X-Session-Id": chatSession.id,
     },
   });
+  } catch (err) {
+    console.error("[/api/chat] uncaught error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: `Server error: ${message}` }, { status: 500 });
+  }
 }
 
 async function collectAndSaveExtraCredit(
