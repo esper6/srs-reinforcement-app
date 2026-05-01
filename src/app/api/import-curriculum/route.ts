@@ -47,11 +47,6 @@ const MIN_FACETS_PER_CONCEPT = 3;
 const MAX_FACETS_PER_CONCEPT = 5;
 const MAX_FACET_NAME_CHARS = 100;
 
-// Strip HTML tags from text fields to prevent stored XSS
-function stripHtml(str: string): string {
-  return str.replace(/<[^>]*>/g, "");
-}
-
 // Extract `#### Heading` titles from a markdown lesson, in order. Used to
 // verify the contract between the Facets array and the lesson structure
 // (see docs/curriculum-generator-prompt.md).
@@ -264,9 +259,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Sanitize all text fields before writing to DB
-    const safeName = stripHtml(cur.Name).trim();
-    const safeDescription = stripHtml(cur.Description).trim();
+    // Trim text fields. No HTML stripping — every consumer renders these
+    // through React JSX text expressions which auto-escape, and the lesson
+    // body goes through ReactMarkdown. Stripping <tags> here was eating
+    // legitimate content like generic-type names (e.g. `<T>` in a title).
+    const safeName = cur.Name.trim();
+    const safeDescription = cur.Description.trim();
 
     // Upsert the curriculum
     const curriculum = await prisma.curriculum.upsert({
@@ -294,7 +292,7 @@ export async function POST(req: NextRequest) {
     for (const [sIdx, sec] of cur.Sections.entries()) {
       const section = await prisma.section.create({
         data: {
-          name: stripHtml(sec.Name).trim(),
+          name: sec.Name.trim(),
           order: sIdx,
           curriculumId: curriculum.id,
         },
@@ -303,8 +301,8 @@ export async function POST(req: NextRequest) {
       for (const concept of sec.Concepts) {
         const newConcept = await prisma.concept.create({
           data: {
-            title: stripHtml(concept.Title).trim(),
-            description: stripHtml(concept.Description || "").trim(),
+            title: concept.Title.trim(),
+            description: (concept.Description || "").trim(),
             lessonMarkdown: concept.LessonMarkdown, // Markdown kept intact — rendered safely by ReactMarkdown
             facets: concept.Facets, // Validated upstream; HTML rejected; matches #### headings
             order: concept.Order || 0,
@@ -319,8 +317,8 @@ export async function POST(req: NextRequest) {
             await prisma.vocabWord.create({
               data: {
                 conceptId: newConcept.id,
-                term: stripHtml(vocab.Term).trim(),
-                definition: stripHtml(vocab.Definition).trim(),
+                term: vocab.Term.trim(),
+                definition: vocab.Definition.trim(),
                 order: vIdx,
               },
             });
