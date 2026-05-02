@@ -343,6 +343,32 @@ body::after {
   font-size: 0.85em;
   font-family: var(--font-geist-mono);
 }
+/* Multi-line fenced blocks — react-markdown renders `<pre><code>…</code></pre>`.
+   Without this, the inline-code styling above gets applied to the whole block
+   and long lines overflow the container with no scroll affordance. */
+.lesson-markdown pre {
+  background: var(--surface-light);
+  border: 1px solid var(--border-retro);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+  font-family: var(--font-geist-mono);
+  font-size: 0.85em;
+  line-height: 1.5;
+  color: rgba(208, 208, 224, 0.88);
+  /* Wrap on whitespace so short illustrative snippets read inline; the
+     overflow-x is a fallback for lines with no breakable points. */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.lesson-markdown pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: 1em;
+}
 .lesson-markdown ul {
   list-style: disc;
   margin: 0.75rem 0 0.75rem 1.5rem;

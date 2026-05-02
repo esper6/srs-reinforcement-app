@@ -59,7 +59,6 @@ function errorStream(): ReadableStream<Uint8Array> {
   });
 }
 
-// Temporary: show actual relay error in chat for debugging
 function debugErrorStream(detail: string): ReadableStream<Uint8Array> {
   return new ReadableStream({
     start(controller) {
