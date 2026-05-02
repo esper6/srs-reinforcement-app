@@ -4,6 +4,8 @@ import { Share_Tech_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Nav from "@/components/Nav";
+import DevBanner from "@/components/DevBanner";
+import { isDevEnv } from "@/lib/appEnv";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,10 +23,13 @@ const shareTechMono = Share_Tech_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "MEMORY.dump — Fight the Decay",
-  description: "AI-powered spaced repetition for STEM learning. Dump your knowledge. Fight the decay.",
-};
+export function generateMetadata(): Metadata {
+  const baseTitle = "MEMORY.dump — Fight the Decay";
+  return {
+    title: isDevEnv() ? `[DEV] ${baseTitle}` : baseTitle,
+    description: "AI-powered spaced repetition for STEM learning. Dump your knowledge. Fight the decay.",
+  };
+}
 
 export default function RootLayout({
   children,
@@ -38,6 +43,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
         <Providers>
+          <DevBanner />
           <Nav />
           <main className="flex-1 flex flex-col">{children}</main>
         </Providers>

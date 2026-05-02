@@ -20,7 +20,9 @@ npx prisma generate
 # Order matters: build BEFORE migrate. A failing build with a successful
 # migration leaves the running service hitting a new schema with old code,
 # which is what bit Phase 6. Failing here is recoverable — schema is untouched.
-npm run build
+# APP_ENV=development drives the [DEV] tab title and ribbon for any pages
+# Next prerenders at build time (runtime systemd env doesn't reach this step).
+APP_ENV=development npm run build
 
 npx prisma migrate deploy
 

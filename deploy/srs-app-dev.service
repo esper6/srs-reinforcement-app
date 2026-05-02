@@ -9,6 +9,7 @@ Group=www-data
 WorkingDirectory=/opt/srs-app-dev
 Environment=NODE_ENV=production
 Environment=PORT=3001
+Environment=APP_ENV=development
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=5
