@@ -26,6 +26,17 @@ APP_ENV=development npm run build
 
 npx prisma migrate deploy
 
+# Sync the systemd unit file from the repo if it changed, so things like
+# Environment= edits actually take effect. Without daemon-reload, systemctl
+# restart re-launches the service with the *old* unit definition.
+UNIT_SRC="$APP_DIR/deploy/${SERVICE}.service"
+UNIT_DST="/etc/systemd/system/${SERVICE}.service"
+if ! sudo cmp -s "$UNIT_SRC" "$UNIT_DST"; then
+  echo "systemd unit changed — syncing $UNIT_DST and reloading daemon"
+  sudo cp "$UNIT_SRC" "$UNIT_DST"
+  sudo systemctl daemon-reload
+fi
+
 sudo systemctl restart "$SERVICE"
 
 # Poll /api/health until the new process is actually serving traffic.
