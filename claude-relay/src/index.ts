@@ -110,7 +110,7 @@ app.post("/api/stream", auth, (req: Request, res: Response) => {
     res.end();
   });
 
-  req.on("close", () => {
+  res.on("close", () => {
     if (!child.killed) child.kill();
   });
 });
