@@ -4,11 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import { FacetLevel } from "@prisma/client";
 import { useRound, type RoundResult } from "@/hooks/useRound";
 import MessageBubble from "./MessageBubble";
+import type { ChatMessageData } from "@/lib/types";
 
 interface FacetAlternative {
   name: string;
   level: FacetLevel;
   expertStage: number;
+}
+
+export interface RoundResolution {
+  result: RoundResult;
+  transcript: ChatMessageData[];
+  sessionId: string | null;
 }
 
 interface RoundViewProps {
@@ -17,7 +24,7 @@ interface RoundViewProps {
   facetName: string;
   currentLevel: FacetLevel;
   currentExpertStage: number;
-  onResolve: (result: RoundResult) => void;
+  onResolve: (resolution: RoundResolution) => void;
   // Other due facets the user can switch to before engaging with the round.
   // Empty / omitted → no Switch button rendered.
   alternativeFacets?: FacetAlternative[];
@@ -51,7 +58,7 @@ export default function RoundView({
   alternativeFacets = [],
   onSwitchFacet,
 }: RoundViewProps) {
-  const { messages, isLoading, error, sendMessage, roundResult } = useRound({
+  const { messages, isLoading, error, sendMessage, roundResult, sessionId } = useRound({
     conceptId,
     initialFacetName: facetName,
   });
@@ -171,7 +178,13 @@ export default function RoundView({
             ✓ Round complete
           </div>
           <button
-            onClick={() => onResolve(roundResult)}
+            onClick={() =>
+              onResolve({
+                result: roundResult,
+                transcript: visibleMessages,
+                sessionId,
+              })
+            }
             className="px-5 py-2 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/40 text-[var(--neon-cyan)] rounded font-[family-name:var(--font-share-tech-mono)] text-sm hover:bg-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)]/60 transition-all duration-200"
             autoFocus
           >

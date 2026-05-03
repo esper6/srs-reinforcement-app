@@ -9,9 +9,12 @@ import type { ChatMessageData } from "@/lib/types";
 
 interface UseChatOptions {
   conceptId: string;
+  // Round transcript carried forward into Extra Credit. Sent on every send as
+  // ephemeral LLM primer (not persisted as EC ChatMessages).
+  precedingSessionId?: string | null;
 }
 
-export function useChat({ conceptId }: UseChatOptions) {
+export function useChat({ conceptId, precedingSessionId }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +39,7 @@ export function useChat({ conceptId }: UseChatOptions) {
             conceptId,
             sessionId: sessionIdRef.current,
             userMessage,
+            precedingSessionId: precedingSessionId ?? null,
           }),
         });
 
@@ -94,7 +98,7 @@ export function useChat({ conceptId }: UseChatOptions) {
         setIsLoading(false);
       }
     },
-    [conceptId]
+    [conceptId, precedingSessionId]
   );
 
   const reset = useCallback(() => {

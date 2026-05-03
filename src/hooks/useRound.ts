@@ -34,6 +34,7 @@ export function useRound({ conceptId, initialFacetName }: UseRoundOptions) {
   const [facetName, setFacetName] = useState<string | null>(initialFacetName ?? null);
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const facetNameRef = useRef<string | null>(initialFacetName ?? null);
 
@@ -68,7 +69,10 @@ export function useRound({ conceptId, initialFacetName }: UseRoundOptions) {
 
         // Capture session + facet from headers on first response
         const newSessionId = res.headers.get("X-Session-Id");
-        if (newSessionId) sessionIdRef.current = newSessionId;
+        if (newSessionId) {
+          sessionIdRef.current = newSessionId;
+          setSessionId(newSessionId);
+        }
         const newFacetNameEncoded = res.headers.get("X-Facet-Name");
         if (newFacetNameEncoded) {
           // Server URL-encodes facet name because HTTP headers are Latin-1
@@ -144,6 +148,7 @@ export function useRound({ conceptId, initialFacetName }: UseRoundOptions) {
     setFacetName(null);
     setRoundResult(null);
     setError(null);
+    setSessionId(null);
     sessionIdRef.current = null;
     facetNameRef.current = null;
   }, []);
@@ -156,5 +161,6 @@ export function useRound({ conceptId, initialFacetName }: UseRoundOptions) {
     error,
     sendMessage,
     reset,
+    sessionId,
   };
 }

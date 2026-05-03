@@ -22,13 +22,16 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { conceptId, sessionId, userMessage } = await req.json();
+  const { conceptId, sessionId, userMessage, precedingSessionId } = await req.json();
 
   if (!conceptId || !userMessage) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
   if (typeof userMessage !== "string" || userMessage.length > 5000) {
     return NextResponse.json({ error: "Message too long (max 5000 chars)" }, { status: 400 });
+  }
+  if (precedingSessionId != null && typeof precedingSessionId !== "string") {
+    return NextResponse.json({ error: "Invalid precedingSessionId" }, { status: 400 });
   }
 
   // Rate limit: max 30 user messages per 5 min across all sessions
@@ -83,11 +86,44 @@ export async function POST(req: NextRequest) {
     data: { chatSessionId: chatSession.id, role: "user", content: sanitizedMessage },
   });
 
-  const messages = chatSession.messages.map((m: { role: string; content: string }) => ({
-    role: m.role as "user" | "assistant",
-    content: m.content,
-  }));
-  messages.push({ role: "user", content: sanitizedMessage });
+  // Prefix the LLM context with the round transcript when EC is bolted onto a
+  // just-finished round. We don't persist these as EC ChatMessages — they
+  // remain owned by the ROUND session. Strips the [START ROUND] trigger and
+  // any <round_result/> tag content so the EC system prompt isn't confused.
+  const precedingMessages: { role: "user" | "assistant"; content: string }[] = [];
+  if (precedingSessionId) {
+    const preceding = await prisma.chatSession.findUnique({
+      where: { id: precedingSessionId },
+      include: { messages: { orderBy: { createdAt: "asc" } } },
+    });
+    if (
+      preceding &&
+      preceding.userId === userId &&
+      preceding.conceptId === conceptId &&
+      preceding.mode === "ROUND"
+    ) {
+      for (const m of preceding.messages) {
+        if (m.role === "user" && m.content.startsWith("[START ROUND]")) continue;
+        const cleaned = m.content
+          .replace(/<round_result\s+name="[\s\S]*?"\s+outcome="(advance|drop)"\s*\/>/gi, "")
+          .trim();
+        if (!cleaned) continue;
+        precedingMessages.push({
+          role: m.role as "user" | "assistant",
+          content: cleaned,
+        });
+      }
+    }
+  }
+
+  const messages = [
+    ...precedingMessages,
+    ...chatSession.messages.map((m: { role: string; content: string }) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    { role: "user" as const, content: sanitizedMessage },
+  ];
 
   const systemPrompt = buildExtraCreditPrompt(concept.title, concept.lessonMarkdown);
 

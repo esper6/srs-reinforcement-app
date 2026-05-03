@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { FacetLevel } from "@prisma/client";
 import LessonGate from "@/components/LessonGate";
-import RoundView from "@/components/RoundView";
+import RoundView, { type RoundResolution } from "@/components/RoundView";
 import RoundResultView from "@/components/RoundResultView";
 import SynthesisView from "@/components/SynthesisView";
 import SynthesisResultView from "@/components/SynthesisResultView";
@@ -13,6 +13,7 @@ import RoundHistoryViewer from "@/components/RoundHistoryViewer";
 import { isSynthesisReady } from "@/lib/levels";
 import type { RoundResult } from "@/hooks/useRound";
 import type { SynthesisResult } from "@/hooks/useSynthesis";
+import type { ChatMessageData } from "@/lib/types";
 
 interface SubMasteryDTO {
   name: string;
@@ -97,8 +98,19 @@ type PageState =
   | { kind: "synthesis_result"; result: SynthesisResult }
   | { kind: "lesson_gate" }
   | { kind: "round"; facet: ResolvedFacet }
-  | { kind: "result"; result: RoundResult; previousFacet: ResolvedFacet }
-  | { kind: "extra_credit"; previousFacetName: string };
+  | {
+      kind: "result";
+      result: RoundResult;
+      previousFacet: ResolvedFacet;
+      roundTranscript: ChatMessageData[];
+      roundSessionId: string | null;
+    }
+  | {
+      kind: "extra_credit";
+      previousFacetName: string;
+      roundTranscript: ChatMessageData[];
+      roundSessionId: string | null;
+    };
 
 export default function LearnPage() {
   const params = useParams();
@@ -196,10 +208,16 @@ export default function LearnPage() {
     setPageState({ kind: "round", facet: weakest });
   }, [concept]);
 
-  const handleRoundResolve = useCallback((result: RoundResult) => {
+  const handleRoundResolve = useCallback((resolution: RoundResolution) => {
     setPageState((prev) => {
       if (prev.kind !== "round") return prev;
-      return { kind: "result", result, previousFacet: prev.facet };
+      return {
+        kind: "result",
+        result: resolution.result,
+        previousFacet: prev.facet,
+        roundTranscript: resolution.transcript,
+        roundSessionId: resolution.sessionId,
+      };
     });
   }, []);
 
@@ -211,7 +229,12 @@ export default function LearnPage() {
   const handleExtraCredit = useCallback(() => {
     setPageState((prev) => {
       if (prev.kind !== "result") return prev;
-      return { kind: "extra_credit", previousFacetName: prev.previousFacet.name };
+      return {
+        kind: "extra_credit",
+        previousFacetName: prev.previousFacet.name,
+        roundTranscript: prev.roundTranscript,
+        roundSessionId: prev.roundSessionId,
+      };
     });
   }, []);
 
@@ -494,7 +517,8 @@ export default function LearnPage() {
 
   if (pageState.kind === "extra_credit") {
     // Extra Credit is the only thing /api/chat still serves — open conversation,
-    // no scoring, no assessment trigger. User exits via the BackBar above.
+    // no scoring. The round transcript is bolted on as visible history; the
+    // server uses it as LLM primer via precedingSessionId on every EC turn.
     return (
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {BackBar}
@@ -506,6 +530,9 @@ export default function LearnPage() {
             conceptId={conceptId}
             conceptTitle={concept.title}
             lessonMarkdown={concept.lessonMarkdown}
+            precedingTranscript={pageState.roundTranscript}
+            precedingFacetName={pageState.previousFacetName}
+            precedingSessionId={pageState.roundSessionId}
           />
         </div>
       </div>

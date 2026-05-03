@@ -19,7 +19,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FacetLevel } from "@prisma/client";
-import RoundView from "@/components/RoundView";
+import RoundView, { type RoundResolution } from "@/components/RoundView";
 import RoundResultView from "@/components/RoundResultView";
 import type { RoundResult } from "@/hooks/useRound";
 import Link from "next/link";
@@ -194,13 +194,13 @@ export default function BurnPage() {
     router.refresh();
   }, [slug, router]);
 
-  const handleRoundResolve = useCallback((result: RoundResult) => {
+  const handleRoundResolve = useCallback((resolution: RoundResolution) => {
     setPageState((prev) => {
       if (prev.kind !== "round") return prev;
       return {
         kind: "result",
         subjectName: prev.subjectName,
-        result,
+        result: resolution.result,
         previousFacet: prev.current,
       };
     });
