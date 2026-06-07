@@ -29,7 +29,7 @@ npm run build              # Production build (always test before push)
 - **Two databases on the VM Postgres**: `srsapp` (production), `srsapp-dev` (development). Routing is plain `DATABASE_URL` per environment — no Neon branches anymore.
 - **Git workflow**: code on `develop` → deploy to dev → merge to `master` for production.
 - **Prisma client generation**: `postinstall` hook runs `prisma generate`. Always annotate Prisma callback params explicitly (use local type aliases like `type Section = (typeof result.sections)[number]`) to avoid implicit-any errors at build time.
-- **SSH**: `ssh -i ~/.ssh/greg-w-vm_key.pem azureuser@20.242.97.67`
+- **SSH**: `ssh -i .ssh/greg-w-vm_key.pem greg-w@20.242.97.67` (run from the repo root — the key lives in the project's `.ssh/`, gitignored. The VM admin user is `greg-w`, NOT `azureuser`.)
 
 ### Claude Relay
 - **Purpose**: Runs Claude Code CLI relay so the app can use enterprise Claude license instead of API keys.
